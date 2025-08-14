@@ -9,33 +9,48 @@ export default function ListPage() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    let done = false;
+    let cancelled = false;
 
-    const check = async () => {
+    async function check() {
+      // Get current session from the browser
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
+      // If NOT logged in, go to login with redirect back to /list
       if (!session) {
         router.replace(`/login?redirect=${encodeURIComponent("/list")}`);
         return;
       }
-      if (!done) setReady(true);
-    };
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session) setReady(true);
-    });
+      // Logged in -> show the page
+      if (!cancelled) setReady(true);
+    }
+
+    // Listen for auth changes (just in case the session arrives slightly later)
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session) {
+          setReady(true);
+        } else {
+          router.replace(`/login?redirect=${encodeURIComponent("/list")}`);
+        }
+      }
+    );
 
     check();
+
     return () => {
-      done = true;
-      sub.subscription?.unsubscribe();
+      cancelled = true;
+      authListener.subscription?.unsubscribe();
     };
   }, [router]);
 
-  if (!ready) return <div style={{ padding: 24 }}>Loading…</div>;
+  if (!ready) {
+    return <div style={{ padding: 24 }}>Loading…</div>;
+  }
 
+  // === Your authenticated content ===
   return (
     <main style={{ maxWidth: 720, margin: "40px auto", padding: "0 16px" }}>
       <h1>List Your Space</h1>
