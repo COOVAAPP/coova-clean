@@ -2,34 +2,38 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../lib/supabaseClient";
+import { supabase } from "@/lib/supabaseClient";
+import UploadBox from "./UploadBox";
 
 export default function ListPage() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
+    let alive = true;
 
     async function check() {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
       if (!session) {
         router.replace(`/login?redirect=${encodeURIComponent("/list")}`);
         return;
       }
-
-      if (!cancelled) setReady(true);
+      if (alive) setReady(true);
     }
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
-      if (session) setReady(true);
-    });
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_evt, session) => {
+        if (session) setReady(true);
+      }
+    );
 
     check();
     return () => {
-      cancelled = true;
-      sub?.subscription?.unsubscribe?.();
+      alive = false;
+      listener.subscription?.unsubscribe();
     };
   }, [router]);
 
@@ -38,7 +42,8 @@ export default function ListPage() {
   return (
     <main style={{ maxWidth: 720, margin: "40px auto", padding: "0 16px" }}>
       <h1>List Your Space</h1>
-      <p>Authenticated. Render your form here.</p>
+      <p>Authenticated. Upload a cover image below.</p>
+      <UploadBox />
     </main>
   );
 }
