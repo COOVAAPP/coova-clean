@@ -1,35 +1,13 @@
-"use client";
+import { Suspense } from "react";
+import LoginClient from "./LoginClient";
 
-import { useEffect } from "react";
-import { useSearchParams } from "next/navigation";
-import { supabase } from "../../lib/supabaseClient";
+export const dynamic = "force-dynamic";  // do not prerender /login
+export const revalidate = 0;
 
-export default function LoginPage() {
-  const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") || "/list";
-
-  useEffect(() => {
-    // no-op page to show button
-  }, [redirect]);
-
-  const signInWithGoogle = async () => {
-    const origin = window.location.origin;
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${origin}/api/auth/callback?redirect=${encodeURIComponent(
-          redirect
-        )}`,
-      },
-    });
-  };
-
+export default function Page() {
   return (
-    <main style={{ maxWidth: 720, margin: "40px auto", padding: "0 16px" }}>
-      <h1>Login</h1>
-      <button className="btn primary" onClick={signInWithGoogle}>
-        Sign in with Google
-      </button>
-    </main>
+    <Suspense fallback={<div style={{ padding: 24 }}>Loading…</div>}>
+      <LoginClient />
+    </Suspense>
   );
 }
