@@ -2,112 +2,106 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
-import UploadBox from "./UploadBox";
+import { supabase } from "../lib/supabaseClient.js";
+import UploadBox from "../login/UploadBox.jsx"; // if UploadBox lives elsewhere, adjust path
 
 export default function ListPage() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
-  const [title, setTitle] = useState("");
-  const [price, setPrice] = useState("");
-  const [imageUrl, setImageUrl] = useState(null);
-  const [msg, setMsg] = useState(null);
 
+  // auth gate
   useEffect(() => {
-    let cancel = false;
-
-    async function gate() {
+    let done = false;
+    async function check() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         router.replace(`/login?redirect=${encodeURIComponent("/list")}`);
         return;
       }
-      if (!cancel) setReady(true);
+      if (!done) setReady(true);
     }
-
-    const { data: authSub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session) setReady(true);
-    });
-
-    gate();
-    return () => {
-      cancel = true;
-      authSub.subscription?.unsubscribe();
-    };
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => { if (s) setReady(true); });
+    check();
+    return () => { done = true; sub.subscription?.unsubscribe(); };
   }, [router]);
 
-  async function createListing() {
-    setMsg(null);
-    try {
-      if (!title.trim()) throw new Error("Title is required");
-      if (!price || isNaN(Number(price))) throw new Error("Valid price is required");
-      if (!imageUrl) throw new Error("Upload a photo first");
+  const [title, setTitle] = useState("");
+  const [price, setPrice] = useState("");
+  const [publicUrl, setPublicUrl] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error("You must be signed in.");
-      }
+  if (!ready) return <div className="shell" style={{padding:"36px 0"}}>Loading…</div>;
 
-      const { error } = await supabase
-        .from("listings")
-        .insert({
-          user_id: session.user.id,
-          title: title.trim(),
-          price_cents: Math.round(Number(price) * 100),
-          image_url: imageUrl,
-          status: "active"
-        });
+  async function createListing(e) {
+    e.preventDefault();
+    setMsg("");
+    if (!title || !price) { setMsg("Please fill all required fields."); return; }
+    setSaving(true);
 
-      if (error) throw error;
+    const { data: { session } } = await supabase.auth.getSession();
+    const { error } = await supabase
+      .from("listings")
+      .insert({
+        user_id: session?.user?.id,
+        title,
+        price: Number(price),
+        image_url: publicUrl || null,
+        status: "active"
+      });
 
-      setMsg("Listing created!");
-      setTitle("");
-      setPrice("");
-      // keep imageUrl so they can see it
-    } catch (e) {
-      setMsg(e.message || "Failed to create listing");
-    }
+    setSaving(false);
+    if (error) { setMsg(error.message); return; }
+    setMsg("Listing created!");
+    setTitle(""); setPrice(""); setPublicUrl(null);
   }
 
-  if (!ready) return <div className="container-page">Loading…</div>;
-
   return (
-    <main className="container-page">
-      <div className="card">
-        <div className="card-body">
-          <h1 className="text-xl font-semibold tracking-tight">List Your Space</h1>
+    <main className="shell" style={{padding:"28px 0 60px"}}>
+      <h1 className="page-title">List Your Space</h1>
 
-          <div>
-            <label className="label">Title</label>
-            <input
-              className="input"
-              placeholder="Cozy backyard pool"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
+      <div className="card form-card">
+        <form onSubmit={createListing}>
+          <div className="grid">
+            <div>
+              <label className="label">Title *</label>
+              <input
+                className="input"
+                placeholder="Cozy backyard pool"
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="label">Price (USD) *</label>
+              <input
+                className="input"
+                type="number"
+                placeholder="99"
+                value={price}
+                onChange={e => setPrice(e.target.value)}
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="label">Price (USD)</label>
-            <input
-              className="input"
-              placeholder="99"
-              inputMode="decimal"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-            />
+          <div className="row">
+            <label className="label">Photo</label>
+            <UploadBox onUploaded={(url) => setPublicUrl(url)} />
+            {publicUrl ? <p className="help">Uploaded ✓</p> : <p className="help">Upload a cover photo (JPG/PNG).</p>}
           </div>
 
-          <UploadBox onUploaded={setImageUrl} />
+          {msg && <div className="row" style={{color:"#b91c1c"}}>{msg}</div>}
 
-          <div className="divider" />
-
-          <button className="btn btn-primary" onClick={createListing}>
-            Create Listing
-          </button>
-
-          {msg && <p className="text-sm mt-2 text-slate-700">{msg}</p>}
-        </div>
+          <div className="row" style={{display:"flex", gap:10}}>
+            <button className="btn primary" type="submit" disabled={saving}>
+              {saving ? "Saving…" : "Create Listing"}
+            </button>
+            <button className="btn" type="button" onClick={() => router.push("/browse")}>
+              Cancel
+            </button>
+          </div>
+        </form>
       </div>
     </main>
   );
