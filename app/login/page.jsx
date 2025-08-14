@@ -1,18 +1,26 @@
 "use client";
+
+import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { supabase } from "../../lib/supabaseClient";
+import supabase from "../../lib/supabaseClient";
 
 export default function LoginPage() {
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") || "/list";
+
+  useEffect(() => {
+    // keeps the component client-only and stable
+  }, [redirect]);
 
   const signInWithGoogle = async () => {
     const origin = window.location.origin;
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${origin}/api/auth/callback?redirect=${encodeURIComponent(redirect)}`,
-      },
+        redirectTo: `${origin}/api/auth/callback?redirect=${encodeURIComponent(
+          redirect
+        )}`
+      }
     });
   };
 
