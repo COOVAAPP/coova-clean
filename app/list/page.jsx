@@ -10,119 +10,105 @@ export default function ListPage() {
   const [ready, setReady] = useState(false);
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
+  const [imageUrl, setImageUrl] = useState(null);
+  const [msg, setMsg] = useState(null);
 
-  // Require auth
   useEffect(() => {
-    let stop = false;
-    async function run() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+    let cancel = false;
+
+    async function gate() {
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         router.replace(`/login?redirect=${encodeURIComponent("/list")}`);
         return;
       }
-      if (!stop) setReady(true);
+      if (!cancel) setReady(true);
     }
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-      if (s) setReady(true);
+
+    const { data: authSub } = supabase.auth.onAuthStateChange((_e, session) => {
+      if (session) setReady(true);
     });
-    run();
+
+    gate();
     return () => {
-      stop = true;
-      sub.subscription?.unsubscribe();
+      cancel = true;
+      authSub.subscription?.unsubscribe();
     };
   }, [router]);
 
-  async function createListing(e) {
-    e.preventDefault();
-    setMsg("");
+  async function createListing() {
+    setMsg(null);
     try {
-      if (!title.trim() || !price || !imageUrl) {
-        setMsg("Title, price, and image are required.");
-        return;
-      }
-      setSaving(true);
+      if (!title.trim()) throw new Error("Title is required");
+      if (!price || isNaN(Number(price))) throw new Error("Valid price is required");
+      if (!imageUrl) throw new Error("Upload a photo first");
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        setMsg("You must be signed in.");
-        return;
+        throw new Error("You must be signed in.");
       }
 
-      const { error } = await supabase.from("listings").insert([
-        {
+      const { error } = await supabase
+        .from("listings")
+        .insert({
           user_id: session.user.id,
           title: title.trim(),
-          price: Number(price),
+          price_cents: Math.round(Number(price) * 100),
           image_url: imageUrl,
-        },
-      ]);
+          status: "active"
+        });
 
       if (error) throw error;
 
-      setMsg("Listing created ✓");
-      // Optional: redirect to a browse page
-      // router.push("/browse");
-    } catch (err) {
-      setMsg(err.message || "Save failed");
-    } finally {
-      setSaving(false);
+      setMsg("Listing created!");
+      setTitle("");
+      setPrice("");
+      // keep imageUrl so they can see it
+    } catch (e) {
+      setMsg(e.message || "Failed to create listing");
     }
   }
 
-  if (!ready) return <div style={{ padding: 24 }}>Loading…</div>;
+  if (!ready) return <div className="container-page">Loading…</div>;
 
   return (
-    <main style={{ maxWidth: 720, margin: "40px auto", padding: "0 16px" }}>
-      <h1>List Your Space</h1>
+    <main className="container-page">
+      <div className="card">
+        <div className="card-body">
+          <h1 className="text-xl font-semibold tracking-tight">List Your Space</h1>
 
-      <form onSubmit={createListing} style={{ display: "grid", gap: 16, marginTop: 16 }}>
-        <label style={{ display: "grid", gap: 6 }}>
-          <span>Title</span>
-          <input
-            className="input"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Cozy backyard pool"
-          />
-        </label>
-
-        <label style={{ display: "grid", gap: 6 }}>
-          <span>Price (USD)</span>
-          <input
-            className="input"
-            type="number"
-            min={0}
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            placeholder="99"
-          />
-        </label>
-
-        <div style={{ display: "grid", gap: 8 }}>
-          <span>Photo</span>
-          <UploadBox onUploaded={(url) => setImageUrl(url)} />
-          {imageUrl && (
-            <img
-              src={imageUrl}
-              alt="preview"
-              style={{ marginTop: 8, width: 240, borderRadius: 8 }}
+          <div>
+            <label className="label">Title</label>
+            <input
+              className="input"
+              placeholder="Cozy backyard pool"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
             />
-          )}
+          </div>
+
+          <div>
+            <label className="label">Price (USD)</label>
+            <input
+              className="input"
+              placeholder="99"
+              inputMode="decimal"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+            />
+          </div>
+
+          <UploadBox onUploaded={setImageUrl} />
+
+          <div className="divider" />
+
+          <button className="btn btn-primary" onClick={createListing}>
+            Create Listing
+          </button>
+
+          {msg && <p className="text-sm mt-2 text-slate-700">{msg}</p>}
         </div>
-
-        <button className="btn primary" type="submit" disabled={saving}>
-          {saving ? "Saving…" : "Create Listing"}
-        </button>
-
-        {msg && <p style={{ color: msg.includes("✓") ? "green" : "crimson" }}>{msg}</p>}
-      </form>
+      </div>
     </main>
   );
 }
