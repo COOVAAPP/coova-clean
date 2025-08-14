@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import supabase from "../../lib/supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 
 export default function ListPage() {
   const router = useRouter();
@@ -12,9 +12,7 @@ export default function ListPage() {
     let cancelled = false;
 
     async function check() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {
         router.replace(`/login?redirect=${encodeURIComponent("/list")}`);
@@ -24,14 +22,14 @@ export default function ListPage() {
       if (!cancelled) setReady(true);
     }
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_e, s) => {
-      if (s) setReady(true);
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+      if (session) setReady(true);
     });
 
     check();
     return () => {
       cancelled = true;
-      listener?.subscription?.unsubscribe?.();
+      sub?.subscription?.unsubscribe?.();
     };
   }, [router]);
 

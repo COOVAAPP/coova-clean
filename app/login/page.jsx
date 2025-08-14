@@ -2,14 +2,14 @@
 
 import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import supabase from "../../lib/supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 
 export default function LoginPage() {
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") || "/list";
 
   useEffect(() => {
-    // keeps the component client-only and stable
+    // no-op page to show button
   }, [redirect]);
 
   const signInWithGoogle = async () => {
@@ -19,8 +19,8 @@ export default function LoginPage() {
       options: {
         redirectTo: `${origin}/api/auth/callback?redirect=${encodeURIComponent(
           redirect
-        )}`
-      }
+        )}`,
+      },
     });
   };
 
