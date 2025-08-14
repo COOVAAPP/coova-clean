@@ -1,25 +1,38 @@
-export const metadata = {
-  title: 'COOVA',
-  description: 'Rent Luxury. Share Vibes.',
-};
+import Link from "next/link";
+import "./globals.css";
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <header className="border-b">
-          <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
-            <a href="/" className="font-extrabold text-lg">COOVA</a>
-            <nav className="ml-auto flex gap-2">
-              <a className="px-3 py-1 border rounded" href="/browse">Browse</a>
-              <a className="px-3 py-1 border rounded" href="/auth/login">Login</a>
-              <a className="px-3 py-1 bg-blue-600 text-white rounded" href="/list">List Your Space</a>
-            </nav>
+        <header style={{ padding: "16px 0", borderBottom: "1px solid #eee" }}>
+          <div
+            style={{
+              maxWidth: 1100,
+              margin: "0 auto",
+              padding: "0 16px",
+              display: "flex",
+              gap: 12,
+              alignItems: "center",
+            }}
+          >
+            <Link href="/" style={{ fontWeight: 800, textDecoration: "none" }}>
+              COOVA
+            </Link>
+            <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+              <Link className="btn" href="/browse">
+                Browse
+              </Link>
+              <Link className="btn" href="/login">
+                Login
+              </Link>
+              <Link className="btn primary" href="/list">
+                List Your Space
+              </Link>
+            </div>
           </div>
         </header>
-        <main className="max-w-5xl mx-auto px-4 py-8">
-          {children}
-        </main>
+        {children}
       </body>
     </html>
   );
