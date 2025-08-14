@@ -2,107 +2,137 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../lib/supabaseClient.js";
-import UploadBox from "../login/UploadBox.jsx"; // if UploadBox lives elsewhere, adjust path
+import { supabase } from "@/lib/supabaseClient";
+import UploadBox from "./UploadBox.jsx";
+
+const HERO =
+  "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/hero.jpeg";
 
 export default function ListPage() {
   const router = useRouter();
-  const [ready, setReady] = useState(false);
 
-  // auth gate
+  // form state
+  const [title, setTitle] = useState("");
+  const [price, setPrice] = useState(""); // numeric in DB
+  const [photoUrl, setPhotoUrl] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  // gate route to signed-in users
   useEffect(() => {
-    let done = false;
-    async function check() {
+    let cancelled = false;
+
+    async function guard() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         router.replace(`/login?redirect=${encodeURIComponent("/list")}`);
         return;
       }
-      if (!done) setReady(true);
+      if (!cancelled) {
+        // stay on page
+      }
     }
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => { if (s) setReady(true); });
-    check();
-    return () => { done = true; sub.subscription?.unsubscribe(); };
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_evt, session) => {
+        if (!session) {
+          router.replace(`/login?redirect=${encodeURIComponent("/list")}`);
+        }
+      }
+    );
+
+    guard();
+    return () => {
+      cancelled = true;
+      authListener.subscription?.unsubscribe();
+    };
   }, [router]);
 
-  const [title, setTitle] = useState("");
-  const [price, setPrice] = useState("");
-  const [publicUrl, setPublicUrl] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
-
-  if (!ready) return <div className="shell" style={{padding:"36px 0"}}>Loading…</div>;
-
-  async function createListing(e) {
+  async function handleCreate(e) {
     e.preventDefault();
-    setMsg("");
-    if (!title || !price) { setMsg("Please fill all required fields."); return; }
-    setSaving(true);
+    if (!title.trim()) return alert("Please enter a title.");
+    if (!price || isNaN(Number(price))) return alert("Please enter a valid price.");
+    if (!photoUrl) return alert("Please upload a photo first.");
 
-    const { data: { session } } = await supabase.auth.getSession();
-    const { error } = await supabase
-      .from("listings")
-      .insert({
-        user_id: session?.user?.id,
-        title,
+    setCreating(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.replace(`/login?redirect=${encodeURIComponent("/list")}`);
+        return;
+      }
+
+      // MATCHES your table: title (text), price (numeric), image_url (text), status (text), user_id (uuid)
+      const { error } = await supabase.from("listings").insert({
+        user_id: session.user.id,
+        title: title.trim(),
         price: Number(price),
-        image_url: publicUrl || null,
+        image_url: photoUrl,
         status: "active"
       });
 
-    setSaving(false);
-    if (error) { setMsg(error.message); return; }
-    setMsg("Listing created!");
-    setTitle(""); setPrice(""); setPublicUrl(null);
+      if (error) {
+        alert(`Create failed: ${error.message}`);
+      } else {
+        alert("Listing created!");
+        setTitle("");
+        setPrice("");
+        setPhotoUrl("");
+      }
+    } finally {
+      setCreating(false);
+    }
   }
 
   return (
-    <main className="shell" style={{padding:"28px 0 60px"}}>
-      <h1 className="page-title">List Your Space</h1>
+    <>
+      {/* HERO */}
+      <section className="hero" style={{ backgroundImage: `url(${HERO})` }}>
+        <div className="hero__overlay">
+          <h1 className="hero__title">List Your Space</h1>
+        </div>
+      </section>
 
-      <div className="card form-card">
-        <form onSubmit={createListing}>
-          <div className="grid">
-            <div>
-              <label className="label">Title *</label>
-              <input
-                className="input"
-                placeholder="Cozy backyard pool"
-                value={title}
-                onChange={e => setTitle(e.target.value)}
-              />
+      {/* FORM CARD */}
+      <main className="card">
+        <h2 className="card__title">Tell Us About Your Space</h2>
+
+        <form onSubmit={handleCreate}>
+          <label className="label" htmlFor="title">Title</label>
+          <input
+            id="title"
+            className="input"
+            type="text"
+            placeholder="e.g., Cozy backyard pool"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+
+          <label className="label" htmlFor="price">Price (USD)</label>
+          <input
+            id="price"
+            className="input"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="e.g., 99"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+          />
+
+          <label className="label">Photo</label>
+          <UploadBox onUploaded={(url) => setPhotoUrl(url)} />
+
+          {photoUrl ? (
+            <div className="preview">
+              <img src={photoUrl} alt="Preview" />
             </div>
+          ) : null}
 
-            <div>
-              <label className="label">Price (USD) *</label>
-              <input
-                className="input"
-                type="number"
-                placeholder="99"
-                value={price}
-                onChange={e => setPrice(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="row">
-            <label className="label">Photo</label>
-            <UploadBox onUploaded={(url) => setPublicUrl(url)} />
-            {publicUrl ? <p className="help">Uploaded ✓</p> : <p className="help">Upload a cover photo (JPG/PNG).</p>}
-          </div>
-
-          {msg && <div className="row" style={{color:"#b91c1c"}}>{msg}</div>}
-
-          <div className="row" style={{display:"flex", gap:10}}>
-            <button className="btn primary" type="submit" disabled={saving}>
-              {saving ? "Saving…" : "Create Listing"}
-            </button>
-            <button className="btn" type="button" onClick={() => router.push("/browse")}>
-              Cancel
-            </button>
-          </div>
+          <button className="btn btn--primary" disabled={creating}>
+            {creating ? "Creating..." : "Create Listing"}
+          </button>
         </form>
-      </div>
-    </main>
+      </main>
+    </>
   );
 }
