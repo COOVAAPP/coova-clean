@@ -9,16 +9,19 @@ export default function ListPage() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    let stop = false;
+    let done = false;
 
-    async function check() {
-      const { data } = await supabase.auth.getSession();
-      if (!data?.session) {
+    const check = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
         router.replace(`/login?redirect=${encodeURIComponent("/list")}`);
         return;
       }
-      if (!stop) setReady(true);
-    }
+      if (!done) setReady(true);
+    };
 
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       if (session) setReady(true);
@@ -26,7 +29,7 @@ export default function ListPage() {
 
     check();
     return () => {
-      stop = true;
+      done = true;
       sub.subscription?.unsubscribe();
     };
   }, [router]);
@@ -36,7 +39,7 @@ export default function ListPage() {
   return (
     <main style={{ maxWidth: 720, margin: "40px auto", padding: "0 16px" }}>
       <h1>List Your Space</h1>
-      <p>You're signed in. Put the listing form here.</p>
+      <p>Authenticated. Render your form here.</p>
     </main>
   );
 }
