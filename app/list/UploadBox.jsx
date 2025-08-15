@@ -1,36 +1,35 @@
-"use client";
+"use client"
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import supabase from "../../lib/supabaseClient";
 
-export default function UploadBox({ onUploaded }) {
+export default function UploadBox() {
+  const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState("");
+  const [publicUrl, setPublicUrl] = useState(null);
+  const [error, setError] = useState(null);
 
-  async function handleUpload(e) {
-    e.preventDefault();
-    setError("");
-
-    const fileInput = document.getElementById("fileInput");
-    const file = fileInput?.files?.[0];
-    if (!file) {
-      setError("Choose a file first.");
-      return;
-    }
-
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      setError("You must be signed in.");
-      return;
-    }
-
-    const userId = session.user.id;
-    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-    const filename = `${Date.now()}.${ext}`;
-    const filePath = `user/${userId}/${filename}`;
-
-    setUploading(true);
+  const onUpload = async () => {
     try {
+      setError(null);
+      if (!file) {
+        setError("Choose an image first.");
+        return;
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setError("You must be signed in.");
+        return;
+      }
+
+      const userId = session.user.id;
+      const ext = file.name.split(".").pop()?.toLowerCase()?.replace(/[^a-z0-9]/g, "") || "jpg";
+      const filename = `${Date.now()}.${ext}`;
+      const filePath = `user-${userId}/${filename}`;
+
+      setUploading(true);
+
       const { error: upErr } = await supabase.storage
         .from("listings")
         .upload(filePath, file, {
@@ -41,25 +40,41 @@ export default function UploadBox({ onUploaded }) {
 
       if (upErr) throw upErr;
 
-      const { data } = supabase.storage.from("listings").getPublicUrl(filePath);
-      const publicUrl = data?.publicUrl;
-      if (!publicUrl) throw new Error("Could not resolve public URL.");
+      const { data: { publicUrl } } = supabase.storage
+        .from("listings")
+        .getPublicUrl(filePath);
 
-      onUploaded?.(publicUrl);
-    } catch (err) {
-      setError(err.message || "Upload failed");
+      setPublicUrl(publicUrl);
+    } catch (e) {
+      setError(e.message || "Upload failed.");
     } finally {
       setUploading(false);
     }
-  }
+  };
 
   return (
-    <div className="upload">
-      <input id="fileInput" className="input input--file" type="file" accept="image/*" />
-      <button className="btn btn--success" onClick={handleUpload} disabled={uploading}>
-        {uploading ? "Uploading..." : "Upload"}
+    <div style={{ marginTop: 16 }}>
+      <label className="block text-lg font-semibold mb-2">Photo</label>
+      <input
+        type="file"
+        onChange={(e) => setFile(e.target.files?.[0] || null)}
+        className="w-full border border-gray-300 rounded p-2"
+      />
+      <button
+        onClick={onUpload}
+        disabled={uploading}
+        className="btn primary mt-2"
+        style={{ display: "inline-block" }}
+      >
+        {uploading ? "Uploading…" : "Upload"}
       </button>
-      {error ? <div className="error">{error}</div> : null}
+
+      {error && <p className="text-red-600 mt-2">{error}</p>}
+      {publicUrl && (
+        <p className="mt-2">
+          Uploaded! <a href={publicUrl} target="_blank" rel="noreferrer">View</a>
+        </p>
+      )}
     </div>
   );
 }

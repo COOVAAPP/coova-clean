@@ -1,7 +1,7 @@
-"use client";
+"use client"
 
 import { useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import supabase from "../../lib/supabaseClient";
 
 export default function LoginPage() {
   const searchParams = useSearchParams();
@@ -12,8 +12,8 @@ export default function LoginPage() {
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${origin}/api/auth/callback?redirect=${encodeURIComponent(redirect)}`
-      }
+        redirectTo: `${origin}/api/auth/callback?redirect=${encodeURIComponent(redirect)}`,
+      },
     });
   };
 
