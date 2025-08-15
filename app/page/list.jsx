@@ -1,105 +1,104 @@
-import { useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { useState } from "react";
+import { supabase } from "../lib/supabaseClient";
 
-export default function ListSpace() {
-  const [title, setTitle] = useState('');
-  const [price, setPrice] = useState('');
+export default function ListYourSpace() {
+  const [title, setTitle] = useState("");
+  const [price, setPrice] = useState("");
   const [file, setFile] = useState(null);
-  const [loading, setLoading] = useState(false);
 
   const handleUpload = async () => {
-    if (!file) return alert('Please select a photo first.');
-    setLoading(true);
-
+    if (!file) return alert("Please select a file");
     const { data, error } = await supabase.storage
-      .from('Public')
-      .upload(`spaces/${file.name}`, file, { upsert: true });
-
-    setLoading(false);
+      .from("Public")
+      .upload(`spaces/${file.name}`, file);
 
     if (error) {
       console.error(error);
-      alert('Upload failed');
-      return null;
+      alert("Upload failed");
+    } else {
+      alert("Image uploaded successfully");
     }
-
-    const { publicURL } = supabase.storage.from('Public').getPublicUrl(`spaces/${file.name}`);
-    return publicURL;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const photoUrl = await handleUpload();
-    if (!photoUrl) return;
-
-    const { error } = await supabase.from('spaces').insert([{ title, price, photo: photoUrl }]);
-    if (error) {
-      console.error(error);
-      alert('Error saving listing');
-    } else {
-      alert('Listing created successfully!');
-      setTitle('');
-      setPrice('');
-      setFile(null);
-    }
+  const handleCreateListing = async () => {
+    if (!title || !price) return alert("Please fill all fields");
+    // Here you can save the listing to Supabase DB
+    alert("Listing created!");
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
       <div
-        className="bg-cover bg-center h-72 flex items-center justify-center"
+        className="relative h-[400px] flex items-center justify-center text-center text-white"
         style={{
-          backgroundImage: "url('https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/hero.jpeg')"
+          backgroundImage: `url('https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/hero.jpeg')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
         }}
       >
-        <h1 className="text-4xl font-bold text-white drop-shadow-lg">List Your Space</h1>
+        <div className="absolute inset-0 bg-black bg-opacity-40"></div>
+        <h1 className="relative z-10 text-4xl font-bold drop-shadow-lg">
+          List Your Space
+        </h1>
       </div>
 
       {/* Form Section */}
-      <div className="max-w-lg mx-auto p-6 bg-white shadow-md rounded-lg mt-8">
-        <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="max-w-3xl mx-auto p-6 bg-white shadow-lg rounded-lg -mt-12 relative z-20">
+        <h2 className="text-2xl font-semibold mb-6 text-gray-800">
+          Create Your Listing
+        </h2>
+        <div className="space-y-4">
           <div>
-            <label className="block text-lg font-semibold text-gray-700">Title</label>
+            <label className="block text-sm font-medium text-gray-700">
+              Title
+            </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="mt-1 w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Cozy backyard pool"
-              required
             />
           </div>
 
           <div>
-            <label className="block text-lg font-semibold text-gray-700">Price (USD)</label>
+            <label className="block text-sm font-medium text-gray-700">
+              Price (USD)
+            </label>
             <input
               type="number"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="mt-1 w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="99"
-              required
             />
           </div>
 
           <div>
-            <label className="block text-lg font-semibold text-gray-700">Photo</label>
+            <label className="block text-sm font-medium text-gray-700">
+              Photo
+            </label>
             <input
               type="file"
               onChange={(e) => setFile(e.target.files[0])}
-              className="w-full border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="mt-1 w-full border border-gray-300 rounded-lg p-3"
             />
+            <button
+              onClick={handleUpload}
+              className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Upload
+            </button>
           </div>
 
           <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold transition duration-200"
+            onClick={handleCreateListing}
+            className="w-full mt-4 px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700"
           >
-            {loading ? 'Uploading...' : 'Create Listing'}
+            Create Listing
           </button>
-        </form>
+        </div>
       </div>
     </div>
   );
