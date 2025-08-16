@@ -1,5 +1,5 @@
 // app/layout.js
-import "../styles/globals.css";            // <— load Tailwind here
+import '../styles/globals.css';            // <— load Tailwind here
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 
