@@ -1,32 +1,37 @@
-// components/ListingCard.jsx
-export default function ListingCard({ item }) {
+import Link from "next/link";
+
+export default function ListingCard({ listing }) {
   const img =
-    item?.cover_url ||
-    item?.image_url ||
-    (Array.isArray(item?.photos) && item.photos[0]) ||
-    "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?q=80&w=1600&auto=format&fit=crop";
+    (Array.isArray(listing.image_urls) && listing.image_urls[0]) ||
+    listing.image_url ||
+    "https://images.unsplash.com/photo-1505692794403-34d4982a83be?q=80&w=1600&auto=format&fit=crop";
 
   return (
-    <a href={`/listings/${item?.id}`} className="card hover:shadow-md transition">
-      <img
-        src={img}
-        alt={item?.title || "Listing"}
-        className="h-48 w-full object-cover"
-        loading="lazy"
-      />
-      <div className="card-body">
-        <div className="flex items-center justify-between">
-          <h3 className="card-title line-clamp-1">
-            {item?.title || item?.name || "Untitled"}
-          </h3>
-          {item?.price_hour != null && (
-            <span className="text-sm font-semibold">${item.price_hour}/hr</span>
-          )}
-        </div>
-        <p className="mt-1 text-sm text-gray-600 line-clamp-1">
-          {item?.city || item?.location || "—"}
-        </p>
+    <Link
+      href={`/listing/${listing.id}`}
+      className="block rounded-lg overflow-hidden border border-gray-200 hover:shadow-md transition"
+    >
+      <div className="aspect-[4/3] bg-gray-100">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={img}
+          alt={listing.title || "Listing image"}
+          className="h-full w-full object-cover"
+        />
       </div>
-    </a>
+      <div className="p-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold truncate">{listing.title}</h3>
+          <span className="text-brand-600 font-bold">
+            ${Number(listing.price || 0).toFixed(0)}
+          </span>
+        </div>
+        {listing.city || listing.state ? (
+          <p className="text-sm text-gray-600 mt-1">
+            {[listing.city, listing.state].filter(Boolean).join(", ")}
+          </p>
+        ) : null}
+      </div>
+    </Link>
   );
 }
