@@ -1,128 +1,104 @@
-// components/Header.jsx
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
+import { useState } from "react";
 
 export default function Header() {
   const [open, setOpen] = useState(false);
 
-  const close = () => setOpen(false);
-  const toggle = () => setOpen((v) => !v);
-
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-gray-200 bg-white/90 backdrop-blur">
-      <div className="container-page mx-auto flex h-16 items-center justify-between px-4 sm:px-6">
-        {/* Brand */}
-        <Link
-          href="/"
-          className="text-2xl font-black tracking-tight text-gray-900"
-          onClick={close}
-        >
-          COOVA
+    <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-gray-200">
+      {/* Desktop / Tablet */}
+      <div className="container-page h-16 flex items-center justify-between">
+        {/* Logo */}
+        <Link href="/" className="flex items-center gap-2 font-semibold text-xl">
+          <span className="inline-block h-8 w-8 rounded-full bg-brand-600 text-white grid place-items-center">C</span>
+          <span>COOVA</span>
         </Link>
 
-        {/* Desktop Nav */}
-        <nav className="hidden items-center gap-6 md:flex">
-          <Link
-            href="/"
-            className="text-gray-700 transition hover:text-brand-600"
-          >
-            Home
-          </Link>
-
-          <Link
-            href="/browse"
-            className="text-gray-700 transition hover:text-brand-600"
-          >
-            Browse
-          </Link>
-
-          <Link
-            href="/login"
-            className="text-gray-700 transition hover:text-brand-600"
-          >
-            Login
-          </Link>
-
+        {/* Desktop nav */}
+        <nav className="hidden md:flex items-center gap-6">
+          <Link href="/browse" className="hover:text-brand-600">Browse</Link>
+          <Link href="/login" className="hover:text-brand-600">Login</Link>
           <Link
             href="/list"
-            className="rounded-md bg-brand-600 px-4 py-2 font-semibold text-white shadow-sm transition hover:bg-brand-700"
+            className="btn !py-2 !px-4"
           >
             List Your Space
           </Link>
         </nav>
 
-        {/* Mobile Hamburger */}
+        {/* Mobile hamburger */}
         <button
-          type="button"
           aria-label="Open menu"
-          aria-expanded={open}
-          aria-controls="mobile-menu"
-          onClick={toggle}
-          className="inline-flex items-center justify-center rounded-md p-2 text-gray-700 hover:bg-gray-100 md:hidden"
+          className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-md border border-gray-300 hover:bg-gray-50"
+          onClick={() => setOpen(true)}
         >
-          {/* Hamburger / X */}
-          <svg
-            className={`h-6 w-6 ${open ? "hidden" : "block"}`}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-          <svg
-            className={`h-6 w-6 ${open ? "block" : "hidden"}`}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M6 18L18 6M6 6l12 12" />
+          {/* hamburger icon */}
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path strokeWidth="2" strokeLinecap="round" d="M4 7h16M4 12h16M4 17h16" />
           </svg>
         </button>
       </div>
 
-      {/* Mobile Menu Panel */}
-      <div
-        id="mobile-menu"
-        className={`md:hidden ${open ? "block" : "hidden"} border-t border-gray-200 bg-white`}
-      >
-        <nav className="space-y-1 px-4 py-4">
-          <Link
-            href="/"
-            onClick={close}
-            className="block rounded-md px-3 py-2 text-base font-medium text-gray-800 hover:bg-gray-100"
-          >
-            Home
-          </Link>
+      {/* Mobile drawer */}
+      {open && (
+        <div className="md:hidden fixed inset-0 z-[60]">
+          {/* backdrop */}
+          <button
+            aria-label="Close menu"
+            className="absolute inset-0 bg-black/30"
+            onClick={() => setOpen(false)}
+          />
+          {/* panel */}
+          <div className="absolute right-0 top-0 h-full w-80 max-w-[85%] bg-white shadow-xl border-l border-gray-200 flex flex-col">
+            <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200">
+              <Link
+                href="/"
+                className="flex items-center gap-2 font-semibold text-lg"
+                onClick={() => setOpen(false)}
+              >
+                <span className="inline-block h-8 w-8 rounded-full bg-brand-600 text-white grid place-items-center">C</span>
+                <span>COOVA</span>
+              </Link>
+              <button
+                aria-label="Close"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-gray-300 hover:bg-gray-50"
+                onClick={() => setOpen(false)}
+              >
+                {/* close icon */}
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeWidth="2" strokeLinecap="round" d="M6 6l12 12M18 6l-12 12" />
+                </svg>
+              </button>
+            </div>
 
-          <Link
-            href="/browse"
-            onClick={close}
-            className="block rounded-md px-3 py-2 text-base font-medium text-gray-800 hover:bg-gray-100"
-          >
-            Browse
-          </Link>
-
-          <Link
-            href="/login"
-            onClick={close}
-            className="block rounded-md px-3 py-2 text-base font-medium text-gray-800 hover:bg-gray-100"
-          >
-            Login
-          </Link>
-
-          <Link
-            href="/list"
-            onClick={close}
-            className="block rounded-md bg-brand-600 px-3 py-2 text-base font-semibold text-white hover:bg-brand-700"
-          >
-            List Your Space
-          </Link>
-        </nav>
-      </div>
+            <nav className="p-4 flex flex-col gap-2">
+              <Link
+                href="/browse"
+                className="px-3 py-2 rounded-md hover:bg-gray-100"
+                onClick={() => setOpen(false)}
+              >
+                Browse
+              </Link>
+              <Link
+                href="/login"
+                className="px-3 py-2 rounded-md hover:bg-gray-100"
+                onClick={() => setOpen(false)}
+              >
+                Login
+              </Link>
+              <Link
+                href="/list"
+                className="mt-2 btn justify-center"
+                onClick={() => setOpen(false)}
+              >
+                List Your Space
+              </Link>
+            </nav>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
