@@ -1,17 +1,18 @@
-// components/Header.jsx
 export default function Header() {
   return (
-    <header className="absolute inset-x-0 top-0 z-40">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-        <a href="/" className="text-2xl font-black tracking-tight text-white">
+    <header className="sticky top-0 z-40 w-full backdrop-blur bg-white/70 border-b border-gray-100">
+      <div className="container-page h-16 flex items-center justify-between">
+        <a href="/" className="text-2xl font-black tracking-tight">
           COOVA
         </a>
 
-        <nav className="hidden items-center gap-6 md:flex">
-          <a href="/browse" className="text-white/90 hover:text-white">Browse</a>
-          <a href="/login" className="text-white/90 hover:text-white">Login</a>
-          <a href="/list" className="btn white">List Your Space</a>
+        <nav className="hidden md:flex items-center gap-6 text-[15px]">
+          <a href="/browse">Browse</a>
+          <a href="/login">Login</a>
+          <a href="/list" className="btn btn-primary">List Your Space</a>
         </nav>
+
+        <a href="/list" className="md:hidden btn btn-primary">List</a>
       </div>
     </header>
   );

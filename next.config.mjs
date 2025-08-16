@@ -1,14 +1,14 @@
-// next.config.mjs
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
     remotePatterns: [
       {
-        protocol: "https",
-        hostname: "opnqqloemtaaowfttafs.supabase.co",
-        pathname: "/storage/v1/object/public/**",
+        protocol: 'https',
+        hostname: 'opnqqloemtaaowfttafs.supabase.co',
+        pathname: '/**',
       },
     ],
   },
 };
+
 export default nextConfig;

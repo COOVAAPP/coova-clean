@@ -1,23 +1,23 @@
-/* styles/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer components {
-  .btn {
-    @apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-semibold transition;
-  }
-  .btn.primary {
-    @apply bg-brand-500 text-white hover:bg-brand-600;
-  }
-  .btn.white {
-    @apply bg-white text-slate-900 hover:bg-slate-100;
-  }
+@layer base {
+  html, body { @apply bg-white text-gray-900; }
+  a { @apply text-brand-600 hover:text-brand-700 transition-colors; }
+}
 
-  .card {
-    @apply overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition;
-  }
-  .card-body {
-    @apply p-5;
-  }
+@layer components {
+  .container-page { @apply max-w-6xl mx-auto px-4 sm:px-6; }
+
+  .btn { @apply inline-flex items-center justify-center rounded-full font-semibold transition shadow-sm; }
+  .btn-primary { @apply bg-brand-600 text-white hover:bg-brand-700 px-5 py-3; }
+  .btn-outline { @apply border border-gray-300 text-gray-800 hover:bg-gray-50 px-5 py-3; }
+
+  .input { @apply block w-full rounded-full border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none; }
+
+  .card { @apply overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm; }
+  .card-body { @apply p-5; }
+  .card-title { @apply text-lg font-semibold; }
+  .badge { @apply inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-brand-700; }
 }
