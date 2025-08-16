@@ -1,22 +1,23 @@
-/* styles/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Global theme tweaks */
+/* Brand & layout helpers */
 :root {
-  --brand-50:  #eff6ff;
-  --brand-100: #dbeafe;
-  --brand-300: #93c5fd;
   --brand-500: #3b82f6;
   --brand-600: #2563eb;
 }
 
-html, body {
-  height: 100%;
+.container-page {
+  @apply max-w-6xl mx-auto px-4;
 }
 
-a { @apply text-brand-600 hover:text-brand-500; }
-.btn      { @apply inline-flex items-center justify-center rounded-md px-4 py-2 font-semibold; }
-.btn-primary { @apply bg-brand-600 text-white hover:bg-brand-500; }
-.container-page { @apply max-w-6xl mx-auto px-4; }
+/* Buttons */
+.btn {
+  @apply inline-flex items-center justify-center rounded-md px-4 py-2 font-medium
+         text-white bg-brand-600 hover:bg-brand-500 transition;
+}
+.btn-outline {
+  @apply inline-flex items-center rounded-md px-4 py-2 font-medium
+         border border-gray-300 text-gray-700 bg-white hover:bg-gray-50;
+}
