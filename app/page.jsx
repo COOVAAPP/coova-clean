@@ -1,4 +1,5 @@
 // app/page.jsx
+// app/page.jsx
 import Image from "next/image";
 
 const HERO =
@@ -9,16 +10,13 @@ export default function HomePage() {
     <main className="bg-white text-slate-900">
       {/* HERO */}
       <section className="relative h-[560px] w-full">
-        <Image
-          src={HERO}
-          alt="COOVA hero"
-          fill
-          priority
-          className="object-cover"
-        />
-        <div className="absolute inset-0 bg-black/40" />
+        {/* background photo */}
+        <Image src={HERO} alt="COOVA hero" fill priority className="object-cover z-0" />
+        {/* dark overlay for readability */}
+        <div className="absolute inset-0 z-10 bg-gradient-to-b from-black/60 via-black/35 to-black/20" />
 
-        <div className="relative z-10 mx-auto flex h-full max-w-6xl items-center px-4">
+        {/* headline + CTAs */}
+        <div className="relative z-20 mx-auto flex h-full max-w-6xl items-center px-4">
           <div className="max-w-2xl">
             <h1 className="text-5xl font-extrabold text-white">
               Rent Luxury. Share Vibes.

@@ -1,7 +1,7 @@
 // components/Header.jsx
 export default function Header() {
   return (
-    <header className="absolute inset-x-0 top-0 z-30">
+    <header className="absolute inset-x-0 top-0 z-40">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
         <a href="/" className="text-2xl font-black tracking-tight text-white">
           COOVA
