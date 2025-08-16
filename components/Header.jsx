@@ -1,16 +1,15 @@
-import Link from "next/link";
-
+// components/Header.jsx
 export default function Header() {
   return (
-    <header className="bg-white border-b border-gray-200">
-      <div className="container flex items-center gap-4 h-16">
-        <Link href="/" className="text-xl font-black text-brand-700">
+    <header className="w-full border-b border-slate-200 bg-white">
+      <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
+        <a href="/" className="font-black text-xl tracking-tight">
           COOVA
-        </Link>
-        <nav className="ml-auto flex items-center gap-2">
-          <Link className="btn-outline" href="/browse">Browse</Link>
-          <Link className="btn-outline" href="/login">Login</Link>
-          <Link className="btn" href="/list">List Your Space</Link>
+        </a>
+        <nav className="flex items-center gap-6 text-sm">
+          <a href="/browse" className="hover:text-brand-600">Browse</a>
+          <a href="/login" className="hover:text-brand-600">Login</a>
+          <a href="/list" className="btn">List Your Space</a>
         </nav>
       </div>
     </header>
