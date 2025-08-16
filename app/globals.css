@@ -2,25 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Base styling */
-@layer base {
-  html, body {
-    height: 100%;
-  }
-  body {
-    @apply bg-white text-gray-900 antialiased;
-  }
-  a {
-    @apply text-brand-600 hover:text-brand-700;
-  }
+/* Brand colors (used via Tailwind classes in components) */
+:root {
+  --brand-500: #3b82f6;
+  --brand-600: #2563eb;
 }
 
-/* Utilities */
-@layer utilities {
-  .container-page {
-    @apply max-w-6xl mx-auto px-4;
-  }
-  .btn {
-    @apply inline-flex items-center rounded-md bg-brand-600 px-4 py-2 text-white font-medium hover:bg-brand-700 transition;
-  }
+/* Utility wrapper used in Home and other pages */
+.container-page {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+/* Section spacing helpers */
+.section {
+  @apply py-12;
+}
+
+/* Buttons */
+.btn {
+  @apply inline-flex items-center justify-center rounded-md font-medium transition;
+}
+.btn-primary {
+  @apply bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+}
+.btn-outline {
+  @apply border border-blue-600 text-blue-600 hover:bg-blue-50;
+}
+
+/* Simple cards */
+.card {
+  @apply bg-white rounded-xl shadow-sm ring-1 ring-gray-200;
+}
+.card-body {
+  @apply p-4 sm:p-6;
 }
