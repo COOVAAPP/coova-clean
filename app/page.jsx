@@ -8,7 +8,6 @@ const HERO =
 export default function HomePage() {
   return (
     <>
-      <Header />
 
       {/* HERO */}
       <section className="relative w-full">
