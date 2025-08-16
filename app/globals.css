@@ -1,18 +1,21 @@
-/* app/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Basic theme tokens */
+/* Theme */
 :root {
+  --brand-50:  #eff6ff;
+  --brand-100: #dbeafe;
+  --brand-300: #93c5fd;
   --brand-500: #3b82f6;
   --brand-600: #2563eb;
 }
 
 html, body { height: 100%; }
 
-/* Simple utilities used by the UI */
-a { @apply text-blue-600 hover:text-blue-700 underline; }
-.btn { @apply inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700; }
-.input { @apply w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500; }
-.card { @apply rounded-xl border border-gray-200 bg-white/90 p-6 shadow-sm backdrop-blur; }
+a { @apply text-brand-600 hover:text-brand-500; }
+
+.btn { @apply inline-flex items-center justify-center rounded-md px-4 py-2 font-semibold; }
+.btn-primary { @apply bg-brand-600 text-white hover:bg-brand-500; }
+
+.container-page { @apply max-w-6xl mx-auto px-4; }
