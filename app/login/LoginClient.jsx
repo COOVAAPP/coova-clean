@@ -1,13 +1,10 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { useCallback } from "react";
+import supabase from "@/lib/supabaseClient";
 
-export default function LoginClient() {
-  const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") || "/list";
-
-  const signInWithGoogle = async () => {
+export default function LoginClient({ redirect }) {
+  const signInWithGoogle = useCallback(async () => {
     const origin = window.location.origin;
     await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -17,11 +14,11 @@ export default function LoginClient() {
         )}`,
       },
     });
-  };
+  }, [redirect]);
 
   return (
-    <main style={{ maxWidth: 720, margin: "40px auto", padding: "0 16px" }}>
-      <h1>Login</h1>
+    <main className="mx-auto max-w-xl p-6">
+      <h1 className="text-2xl font-semibold mb-6">Login</h1>
       <button className="btn primary" onClick={signInWithGoogle}>
         Sign in with Google
       </button>
