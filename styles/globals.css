@@ -1,9 +1,23 @@
+/* styles/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-.btn {
-  @apply inline-flex items-center justify-center rounded-md bg-brand-500 px-4 py-2
-         text-white font-medium transition hover:bg-brand-600;
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-semibold transition;
+  }
+  .btn.primary {
+    @apply bg-brand-500 text-white hover:bg-brand-600;
+  }
+  .btn.white {
+    @apply bg-white text-slate-900 hover:bg-slate-100;
+  }
+
+  .card {
+    @apply overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition;
+  }
+  .card-body {
+    @apply p-5;
+  }
 }
-.card { @apply rounded-xl bg-white shadow-md ring-1 ring-slate-200; }

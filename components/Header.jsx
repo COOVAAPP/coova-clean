@@ -1,15 +1,16 @@
 // components/Header.jsx
 export default function Header() {
   return (
-    <header className="w-full border-b border-slate-200 bg-white">
-      <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
-        <a href="/" className="font-black text-xl tracking-tight">
+    <header className="absolute inset-x-0 top-0 z-30">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+        <a href="/" className="text-2xl font-black tracking-tight text-white">
           COOVA
         </a>
-        <nav className="flex items-center gap-6 text-sm">
-          <a href="/browse" className="hover:text-brand-600">Browse</a>
-          <a href="/login" className="hover:text-brand-600">Login</a>
-          <a href="/list" className="btn">List Your Space</a>
+
+        <nav className="hidden items-center gap-6 md:flex">
+          <a href="/browse" className="text-white/90 hover:text-white">Browse</a>
+          <a href="/login" className="text-white/90 hover:text-white">Login</a>
+          <a href="/list" className="btn white">List Your Space</a>
         </nav>
       </div>
     </header>
