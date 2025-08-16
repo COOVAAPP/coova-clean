@@ -3,24 +3,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Brand helpers */
-:root {
-  --brand-500: #3b82f6;
-  --brand-600: #2563eb;
-}
-
-.btn {
-  @apply inline-flex items-center justify-center rounded-md px-4 py-2 font-semibold transition-colors;
-}
-.btn.primary {
-  @apply bg-[color:var(--brand-600)] text-white hover:bg-[color:var(--brand-500)];
-}
-.input {
-  @apply w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-500)];
-}
-.card {
-  @apply rounded-xl border border-gray-200 bg-white/90 p-6 shadow-sm backdrop-blur;
-}
-.container {
-  @apply mx-auto max-w-5xl px-4;
+/* optional base styles */
+html, body {
+  height: 100%;
 }
