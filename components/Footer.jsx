@@ -1,14 +1,14 @@
 import Link from "next/link";
-import { FaInstagram, FaXTwitter, FaTiktok } from "react-icons/fa6";
+import { FaInstagram, FaTiktok } from "react-icons/fa6";
+import { FaXTwitter } from "react-icons/fa6";
 
 export default function Footer() {
   return (
-    <footer className="mt-16 bg-[#13D4D4] text-black">
-      {/* Top content */}
+    <footer className="mt-16 bg-brand-500 text-black" style={{ backgroundColor: '#13D4D4' }}>
       <div className="container-page py-10 grid grid-cols-1 sm:grid-cols-4 gap-8">
         {/* Brand */}
         <div>
-          <h3 className="font-semibold mb-3">COOVA</h3>
+          <h3 className="font-semibold mb-9">COOVA</h3>
           <p className="text-sm">
             Rent luxury spaces, share vibes, and create unforgettable experiences.
           </p>
@@ -18,15 +18,9 @@ export default function Footer() {
         <div>
           <h4 className="font-semibold mb-3">Explore</h4>
           <ul className="space-y-2 text-sm">
-            <li>
-              <Link href="/browse" className="hover:opacity-80">Browse Listings</Link>
-            </li>
-            <li>
-              <Link href="/login" className="hover:opacity-80">Login</Link>
-            </li>
-            <li>
-              <Link href="/list" className="hover:opacity-80">Sign Up</Link>
-            </li>
+            <li><Link href="/browse" className="hover:opacity-80">Browse Listings</Link></li>
+            <li><Link href="/login" className="hover:opacity-80">Login</Link></li>
+            <li><Link href="/list"  className="hover:opacity-80">Sign Up</Link></li>
           </ul>
         </div>
 
@@ -34,53 +28,35 @@ export default function Footer() {
         <div>
           <h4 className="font-semibold mb-3">Company</h4>
           <ul className="space-y-2 text-sm">
-            <li>
-              <Link href="/about" className="hover:opacity-80">About Us</Link>
-            </li>
-            <li>
-              <Link href="/terms" className="hover:opacity-80">Terms &amp; Conditions</Link>
-            </li>
-            <li>
-              <Link href="/privacy" className="hover:opacity-80">Privacy Policy</Link>
-            </li>
+            <li><Link href="/about"   className="hover:opacity-80">About Us</Link></li>
+            <li><Link href="/terms"   className="hover:opacity-80">Terms & Conditions</Link></li>
+            <li><Link href="/privacy" className="hover:opacity-80">Privacy Policy</Link></li>
           </ul>
         </div>
 
         {/* Social */}
         <div>
           <h4 className="font-semibold mb-3">Follow Us</h4>
-          <div className="flex items-center gap-4">
-            <a
-              href="https://instagram.com/coova.app"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="COOVA on Instagram"
-              className="hover:opacity-80"
-              title="@coova.app"
-            >
+          <div className="flex gap-4">
+            <a href="https://instagram.com/coova.app" target="_blank" rel="noopener noreferrer"
+               className="hover:opacity-80" aria-label="Instagram">
               <FaInstagram className="h-6 w-6" />
             </a>
-            <a
-              href="https://twitter.com/coovaapp"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="COOVA on X (Twitter)"
-              className="hover:opacity-80"
-              title="@coovaapp"
-            >
+            <a href="https://x.com/coovaapp" target="_blank" rel="noopener noreferrer"
+               className="hover:opacity-80" aria-label="Twitter">
               <FaXTwitter className="h-6 w-6" />
             </a>
-            <a
-              href="https://www.tiktok.com/@coova.app"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="COOVA on TikTok"
-              className="hover:opacity-80"
-              title="@coova.app"
-            >
+            <a href="https://tiktok.com/@coova.app" target="_blank" rel="noopener noreferrer"
+               className="hover:opacity-80" aria-label="TikTok">
               <FaTiktok className="h-6 w-6" />
             </a>
           </div>
+        </div>
+      </div>
+
+      <div className="border-t border-black/15">
+        <div className="container-page py-4 text-xs text-center sm:text-left">
+          © {new Date().getFullYear()} COOVA. All rights reserved.
         </div>
       </div>
 
