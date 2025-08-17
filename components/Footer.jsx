@@ -35,9 +35,9 @@ export default function Footer() {
         <div>
           <h4 className="text-white font-semibold mb-4">Follow Us</h4>
           <div className="flex space-x-4">
-            <a href="https://instagram.com" target="_blank" rel="noreferrer">Instagram</a>
-            <a href="https://twitter.com" target="_blank" rel="noreferrer">Twitter</a>
-            <a href="https://facebook.com" target="_blank" rel="noreferrer">Facebook</a>
+            <a href="https://www.instagram.com/coova.app?igsh=dTdkb2ZhMW0wNWR4&utm_source=qr" target="_blank" rel="noreferrer">Instagram</a>
+            <a href="https://x.com/coovaapp?s=21&t=4zd51WNCyEanaRBnUhO2aA" target="_blank" rel="noreferrer">Twitter</a>
+            <a href="https://www.tiktok.com/@coova.app?_t=ZP-8ywmwyfZmn9&_r=1" target="_blank" rel="noreferrer">TikTok</a>
           </div>
         </div>
       </div>

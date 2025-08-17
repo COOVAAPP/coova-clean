@@ -12,7 +12,7 @@ export default function Header() {
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         {/* Brand */}
         <Link href="/" className="text-lg font-bold tracking-wide">
-          COOVA
+          COOVA◡
         </Link>
 
         {/* Desktop nav */}

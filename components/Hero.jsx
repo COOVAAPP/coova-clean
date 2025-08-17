@@ -37,7 +37,7 @@ export default function Hero() {
       {/* Copy + Search */}
       <div className="relative z-10 mx-auto flex h-full max-w-6xl flex-col justify-center px-4 sm:px-6">
         <h1 className="text-3xl font-bold text-white sm:text-4xl md:text-5xl">
-          Rent Luxury. <span className="text-brand-500">Share Vibes.</span>
+          Rent Luxury. <span className="text-brand-500">Share Good Vibes.</span>
         </h1>
         <p className="mt-3 max-w-xl text-white/90">
           Spaces, cars, and venues—book by the hour. Host your event or find your next creative location.
