@@ -1,6 +1,4 @@
-// components/Header.jsx
 "use client";
-
 import Link from "next/link";
 import { useState } from "react";
 
@@ -8,58 +6,46 @@ export default function Header() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-black/5 bg-[#9EFCFF] backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+    <header
+      className="
+        sticky top-0 z-40 border-b border-black/10
+        bg-[#9EFCFF] supports-[backdrop-filter]:bg-[#9EFCFF]/90
+        backdrop-blur
+      "
+    >
+      <div className="container-page h-16 flex items-center justify-between">
         {/* Brand */}
-        <Link href="/" className="text-2xl font-bold tracking-wide">
-          COOVA
-        </Link>
+        <Link href="/" className="font-semibold tracking-wide">COOVA</Link>
 
         {/* Desktop nav */}
-        <nav className="hidden items-center gap-6 text-lg font-medium text-gray-700 md:flex">
-          <Link href="/browse" className="hover:text-gray-900">
-            Browse
-          </Link>
-          <Link href="/login" className="hover:text-gray-900">
-            Login
-          </Link>
+        <nav className="hidden sm:flex items-center gap-6 text-sm">
+          <Link href="/browse" className="hover:opacity-80">Browse</Link>
+          <Link href="/login" className="hover:opacity-80">Login</Link>
           <Link
             href="/list"
-            className="rounded-full bg-brand-500 px-4 py-2 text-white hover:bg-brand-600"
+            className="rounded-full bg-black text-white px-4 py-2 text-sm hover:opacity-90"
           >
             List Your Space
           </Link>
         </nav>
 
-        {/* Mobile toggle */}
+        {/* Mobile menu button */}
         <button
-          className="inline-flex items-center justify-center rounded-md p-2 text-gray-700 ring-1 ring-black/10 hover:bg-gray-100 md:hidden"
-          aria-label="Open menu"
-          onClick={() => setOpen((v) => !v)}
+          className="sm:hidden inline-flex items-center justify-center h-9 w-9 rounded-md border border-black/10"
+          onClick={() => setOpen(v => !v)}
+          aria-label="Toggle Menu"
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" />
-          </svg>
+          <span className="i-lucide-menu h-5 w-5" />
         </button>
       </div>
 
-      {/* Mobile panel */}
+      {/* Mobile menu */}
       {open && (
-        <div className="border-t border-black/5 bg-white md:hidden">
-          <nav className="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-3 text-sm font-medium">
-            <Link href="/browse" onClick={() => setOpen(false)} className="py-2">
-              Browse
-            </Link>
-            <Link href="/login" onClick={() => setOpen(false)} className="py-2">
-              Login
-            </Link>
-            <Link
-              href="/list"
-              onClick={() => setOpen(false)}
-              className="mt-1 rounded-full bg-brand-500 px-4 py-2 text-center text-white hover:bg-brand-600"
-            >
-              List Your Space
-            </Link>
+        <div className="sm:hidden border-t border-black/10 bg-[#9EFCFF]">
+          <nav className="container-page py-3 flex flex-col gap-2 text-sm">
+            <Link href="/browse" className="py-1">Browse</Link>
+            <Link href="/login" className="py-1">Login</Link>
+            <Link href="/list" className="py-1">List Your Space</Link>
           </nav>
         </div>
       )}
