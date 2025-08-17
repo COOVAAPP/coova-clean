@@ -1,24 +1,15 @@
-"use client";
+import { Suspense } from 'react';
+import SuccessClient from './SuccessClient';
 
-import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect } from "react";
+// prevent static prerender errors (force runtime)
+export const dynamic = 'force-dynamic';
 
-export default function BookingSuccess() {
-  const sp = useSearchParams();
-  const router = useRouter();
-  const bookingId = sp.get("booking_id");
-
-  useEffect(() => {
-    // Could poll Supabase for status=paid if you want to confirm live
-  }, [bookingId]);
-
+export default function SuccessPage() {
   return (
-    <main className="container-page py-16 max-w-xl">
-      <h1 className="text-2xl font-bold mb-2">Payment Successful 🎉</h1>
-      <p className="text-gray-700 mb-6">
-        Your booking is confirmed. You’ll receive details by email.
-      </p>
-      <button className="btn" onClick={() => router.push("/")}>Return Home</button>
+    <main className="container-page py-12">
+      <Suspense fallback={<p className="text-gray-500">Loading…</p>}>
+        <SuccessClient />
+      </Suspense>
     </main>
   );
 }
