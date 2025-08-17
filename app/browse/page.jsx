@@ -1,73 +1,144 @@
-import { createClient } from "@supabase/supabase-js";
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+import BrowseFilters from "@/components/BrowseFilters";
 import ListingCard from "@/components/ListingCard";
-import Pagination from "@/components/Pagination";
-import Filters from "./Filters";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  { auth: { persistSession: false } }
-);
+const PAGE_SIZE = 9;
 
-export const revalidate = 30;
+export default function BrowsePage() {
+  const sp = useSearchParams();
+  const router = useRouter();
 
-export default async function BrowsePage({ searchParams }) {
-  const q = (searchParams?.q || "").trim();
-  const category = (searchParams?.category || "").trim();
-  const min = searchParams?.min ? Number(searchParams.min) : undefined;
-  const max = searchParams?.max ? Number(searchParams.max) : undefined;
-  const sort = searchParams?.sort || "new";
-  const page = Math.max(1, Number(searchParams?.page || 1));
-  const perPage = Math.min(24, Math.max(6, Number(searchParams?.perPage || 12)));
+  const page = Math.max(1, parseInt(sp.get("page") || "1", 10));
+  const q = (sp.get("q") || "").trim();
+  const loc = (sp.get("loc") || "").trim();
+  const type = (sp.get("type") || "all").trim();
 
-  let query = supabase
-    .from("listings")
-    .select("*", { count: "exact" })
-    .eq("status", "active");
+  const [items, setItems] = useState([]);
+  const [total, setTotal] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  if (q) query = query.ilike("title", `%${q}%`);
-  if (category) query = query.eq("category", category);
-  if (typeof min === "number" && !Number.isNaN(min)) query = query.gte("price", min);
-  if (typeof max === "number" && !Number.isNaN(max)) query = query.lte("price", max);
+  const rangeStart = (page - 1) * PAGE_SIZE;
+  const rangeEnd = rangeStart + PAGE_SIZE - 1;
 
-  if (sort === "price_asc") query = query.order("price", { ascending: true });
-  else if (sort === "price_desc") query = query.order("price", { ascending: false });
-  else query = query.order("created_at", { ascending: false });
+  const filterSummary = useMemo(() => {
+    const parts = [];
+    if (type !== "all") parts.push(type);
+    if (q) parts.push(`“${q}”`);
+    if (loc) parts.push(loc);
+    return parts.length ? parts.join(" · ") : "All listings";
+  }, [type, q, loc]);
 
-  const from = (page - 1) * perPage;
-  const to = from + perPage - 1;
+  useEffect(() => {
+    let cancelled = false;
 
-  const { data, count, error } = await query.range(from, to);
+    async function run() {
+      setLoading(true);
 
-  if (error) {
-    return (
-      <main className="container-page py-8">
-        <h1 className="text-2xl font-bold mb-4">Browse</h1>
-        <p className="text-red-600">Error: {error.message}</p>
-      </main>
-    );
+      let query = supabase
+        .from("listings")
+        .select("*", { count: "exact" })
+        .eq("is_public", true);
+
+      if (type !== "all") {
+        query = query.eq("type", type);
+      }
+      if (q) {
+        // search in title or description
+        query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`);
+      }
+      if (loc) {
+        // search in city or state
+        query = query.or(`city.ilike.%${loc}%,state.ilike.%${loc}%`);
+      }
+
+      // newest first + pagination
+      query = query.order("created_at", { ascending: false }).range(rangeStart, rangeEnd);
+
+      const { data, error, count } = await query;
+
+      if (error) {
+        console.error(error);
+        if (!cancelled) {
+          setItems([]);
+          setTotal(0);
+          setLoading(false);
+        }
+        return;
+      }
+
+      if (!cancelled) {
+        setItems(data || []);
+        setTotal(count ?? 0);
+        setLoading(false);
+      }
+    }
+
+    run();
+    return () => { cancelled = true; };
+  }, [page, q, loc, type, rangeStart, rangeEnd]);
+
+  const totalPages = Math.max(1, Math.ceil((total ?? 0) / PAGE_SIZE));
+
+  function goTo(newPage) {
+    const params = new URLSearchParams(sp.toString());
+    params.set("page", String(newPage));
+    router.push(`/browse?${params.toString()}`);
   }
 
   return (
-    <main className="container-page py-8">
-      <h1 className="text-2xl font-bold mb-6">Browse</h1>
+    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <h1 className="text-2xl font-bold text-gray-900">Browse</h1>
+      <p className="mt-1 text-sm text-gray-600">{filterSummary}</p>
 
-      <div className="mb-6">
-        {/* Filters (client) */}
-        <Filters />
+      {/* Filters */}
+      <div className="mt-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <BrowseFilters />
       </div>
 
-      {(!data || data.length === 0) && (
-        <p className="text-gray-600">No results found.</p>
-      )}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {data?.map((l) => (
-          <ListingCard key={l.id} listing={l} />
-        ))}
+      {/* Results */}
+      <div className="mt-6">
+        {loading ? (
+          <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-600">
+            Loading listings…
+          </div>
+        ) : items.length === 0 ? (
+          <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-600">
+            No listings match your filters.
+          </div>
+        ) : (
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {items.map((it) => (
+              <ListingCard key={it.id} listing={it} />
+            ))}
+          </div>
+        )}
       </div>
 
-      <Pagination page={page} perPage={perPage} total={count || 0} />
+      {/* Pagination */}
+      <div className="mt-8 flex items-center justify-between">
+        <button
+          onClick={() => goTo(Math.max(1, page - 1))}
+          disabled={page <= 1}
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm disabled:opacity-50 hover:bg-gray-50"
+        >
+          ← Prev
+        </button>
+        <div className="text-sm text-gray-700">
+          Page <span className="font-semibold">{page}</span> of{" "}
+          <span className="font-semibold">{totalPages}</span>
+        </div>
+        <button
+          onClick={() => goTo(Math.min(totalPages, page + 1))}
+          disabled={page >= totalPages}
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm disabled:opacity-50 hover:bg-gray-50"
+        >
+          Next →
+        </button>
+      </div>
     </main>
   );
 }
