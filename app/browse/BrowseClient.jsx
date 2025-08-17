@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import supabase from '@/lib/supabaseClient';
-import Filters from '@/components/Filters';
+import Filters from '@/components/BrowseFilters';
 import Pagination from '@/components/Pagination';
 
 const PAGE_SIZE = 12;
