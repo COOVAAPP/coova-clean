@@ -1,3 +1,4 @@
+// components/Header.jsx
 "use client";
 
 import Link from "next/link";
@@ -7,96 +8,59 @@ export default function Header() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-gray-200">
-      {/* Desktop / Tablet */}
-      <div className="container-page h-16 flex items-center justify-between">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 font-semibold text-xl">
-          <span className="inline-block h-8 w-8 rounded-full bg-brand-600 text-white grid place-items-center">C</span>
-          <span>COOVA</span>
+    <header className="sticky top-0 z-40 w-full border-b border-black/5 bg-white/80 backdrop-blur">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+        {/* Brand */}
+        <Link href="/" className="text-lg font-bold tracking-wide">
+          COOVA
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-6">
-          <Link href="/browse" className="hover:text-brand-600">Browse</Link>
-          <Link href="/login" className="hover:text-brand-600">Login</Link>
+        <nav className="hidden items-center gap-6 text-sm font-medium text-gray-700 md:flex">
+          <Link href="/browse" className="hover:text-gray-900">
+            Browse
+          </Link>
+          <Link href="/login" className="hover:text-gray-900">
+            Login
+          </Link>
           <Link
             href="/list"
-            className="btn !py-2 !px-4"
+            className="rounded-full bg-brand-500 px-4 py-2 text-white hover:bg-brand-600"
           >
             List Your Space
           </Link>
         </nav>
 
-        {/* Mobile hamburger */}
+        {/* Mobile toggle */}
         <button
+          className="inline-flex items-center justify-center rounded-md p-2 text-gray-700 ring-1 ring-black/10 hover:bg-gray-100 md:hidden"
           aria-label="Open menu"
-          className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-md border border-gray-300 hover:bg-gray-50"
-          onClick={() => setOpen(true)}
+          onClick={() => setOpen((v) => !v)}
         >
-          {/* hamburger icon */}
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path strokeWidth="2" strokeLinecap="round" d="M4 7h16M4 12h16M4 17h16" />
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" />
           </svg>
         </button>
       </div>
 
-      {/* Mobile drawer */}
+      {/* Mobile panel */}
       {open && (
-        <div className="md:hidden fixed inset-0 z-[60]">
-          {/* backdrop */}
-          <button
-            aria-label="Close menu"
-            className="absolute inset-0 bg-black/30"
-            onClick={() => setOpen(false)}
-          />
-          {/* panel */}
-          <div className="absolute right-0 top-0 h-full w-80 max-w-[85%] bg-white shadow-xl border-l border-gray-200 flex flex-col">
-            <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200">
-              <Link
-                href="/"
-                className="flex items-center gap-2 font-semibold text-lg"
-                onClick={() => setOpen(false)}
-              >
-                <span className="inline-block h-8 w-8 rounded-full bg-brand-600 text-white grid place-items-center">C</span>
-                <span>COOVA</span>
-              </Link>
-              <button
-                aria-label="Close"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-gray-300 hover:bg-gray-50"
-                onClick={() => setOpen(false)}
-              >
-                {/* close icon */}
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path strokeWidth="2" strokeLinecap="round" d="M6 6l12 12M18 6l-12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <nav className="p-4 flex flex-col gap-2">
-              <Link
-                href="/browse"
-                className="px-3 py-2 rounded-md hover:bg-gray-100"
-                onClick={() => setOpen(false)}
-              >
-                Browse
-              </Link>
-              <Link
-                href="/login"
-                className="px-3 py-2 rounded-md hover:bg-gray-100"
-                onClick={() => setOpen(false)}
-              >
-                Login
-              </Link>
-              <Link
-                href="/list"
-                className="mt-2 btn justify-center"
-                onClick={() => setOpen(false)}
-              >
-                List Your Space
-              </Link>
-            </nav>
-          </div>
+        <div className="border-t border-black/5 bg-white md:hidden">
+          <nav className="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-3 text-sm font-medium">
+            <Link href="/browse" onClick={() => setOpen(false)} className="py-2">
+              Browse
+            </Link>
+            <Link href="/login" onClick={() => setOpen(false)} className="py-2">
+              Login
+            </Link>
+            <Link
+              href="/list"
+              onClick={() => setOpen(false)}
+              className="mt-1 rounded-full bg-brand-500 px-4 py-2 text-center text-white hover:bg-brand-600"
+            >
+              List Your Space
+            </Link>
+          </nav>
         </div>
       )}
     </header>

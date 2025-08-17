@@ -3,7 +3,7 @@ import "./globals.css";
 import Header from "../components/Header";
 
 export const metadata = {
-  title: "COOVA",
+  title: "COOVA⌣",
   description: "Rent luxury spaces, cars, and venues — by the hour",
 };
 

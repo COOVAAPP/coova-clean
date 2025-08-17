@@ -1,144 +1,146 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
-import BrowseFilters from "@/components/BrowseFilters";
+import { useRouter, useSearchParams } from "next/navigation";
 import ListingCard from "@/components/ListingCard";
 
-const PAGE_SIZE = 9;
-
 export default function BrowsePage() {
-  const sp = useSearchParams();
   const router = useRouter();
-
-  const page = Math.max(1, parseInt(sp.get("page") || "1", 10));
-  const q = (sp.get("q") || "").trim();
-  const loc = (sp.get("loc") || "").trim();
-  const type = (sp.get("type") || "all").trim();
+  const sp = useSearchParams();
 
   const [items, setItems] = useState([]);
-  const [total, setTotal] = useState(null);
+  const [total, setTotal] = useState(0);
+  const [pages, setPages] = useState(1);
   const [loading, setLoading] = useState(true);
 
-  const rangeStart = (page - 1) * PAGE_SIZE;
-  const rangeEnd = rangeStart + PAGE_SIZE - 1;
+  // read current filters from URL
+  const q    = sp.get("q")   || "";
+  const min  = sp.get("min") || "";
+  const max  = sp.get("max") || "";
+  const page = Number(sp.get("page") || 1);
 
-  const filterSummary = useMemo(() => {
-    const parts = [];
-    if (type !== "all") parts.push(type);
-    if (q) parts.push(`“${q}”`);
-    if (loc) parts.push(loc);
-    return parts.length ? parts.join(" · ") : "All listings";
-  }, [type, q, loc]);
+  const size = 12;
+
+  const url = useMemo(() => {
+    const p = new URLSearchParams();
+    if (q)   p.set("q", q);
+    if (min) p.set("min", min);
+    if (max) p.set("max", max);
+    p.set("page", page.toString());
+    p.set("size", size.toString());
+    return `/api/listings?${p.toString()}`;
+  }, [q, min, max, page]);
 
   useEffect(() => {
-    let cancelled = false;
+    let active = true;
+    setLoading(true);
+    fetch(url)
+      .then(r => r.json())
+      .then((res) => {
+        if (!active) return;
+        if (res.error) throw new Error(res.error);
+        setItems(res.items || []);
+        setTotal(res.total || 0);
+        setPages(res.pages || 1);
+      })
+      .catch(() => {
+        setItems([]);
+        setTotal(0);
+        setPages(1);
+      })
+      .finally(() => active && setLoading(false));
+    return () => { active = false; };
+  }, [url]);
 
-    async function run() {
-      setLoading(true);
+  function applyFilters(e) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const nq = (fd.get("q") || "").toString();
+    const nmin = (fd.get("min") || "").toString();
+    const nmax = (fd.get("max") || "").toString();
+    const p = new URLSearchParams();
+    if (nq)   p.set("q", nq);
+    if (nmin) p.set("min", nmin);
+    if (nmax) p.set("max", nmax);
+    p.set("page", "1");
+    router.push(`/browse?${p.toString()}`);
+  }
 
-      let query = supabase
-        .from("listings")
-        .select("*", { count: "exact" })
-        .eq("is_public", true);
-
-      if (type !== "all") {
-        query = query.eq("type", type);
-      }
-      if (q) {
-        // search in title or description
-        query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`);
-      }
-      if (loc) {
-        // search in city or state
-        query = query.or(`city.ilike.%${loc}%,state.ilike.%${loc}%`);
-      }
-
-      // newest first + pagination
-      query = query.order("created_at", { ascending: false }).range(rangeStart, rangeEnd);
-
-      const { data, error, count } = await query;
-
-      if (error) {
-        console.error(error);
-        if (!cancelled) {
-          setItems([]);
-          setTotal(0);
-          setLoading(false);
-        }
-        return;
-      }
-
-      if (!cancelled) {
-        setItems(data || []);
-        setTotal(count ?? 0);
-        setLoading(false);
-      }
-    }
-
-    run();
-    return () => { cancelled = true; };
-  }, [page, q, loc, type, rangeStart, rangeEnd]);
-
-  const totalPages = Math.max(1, Math.ceil((total ?? 0) / PAGE_SIZE));
-
-  function goTo(newPage) {
-    const params = new URLSearchParams(sp.toString());
-    params.set("page", String(newPage));
-    router.push(`/browse?${params.toString()}`);
+  function go(pn) {
+    const p = new URLSearchParams(sp.toString());
+    p.set("page", String(pn));
+    router.push(`/browse?${p.toString()}`);
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="text-2xl font-bold text-gray-900">Browse</h1>
-      <p className="mt-1 text-sm text-gray-600">{filterSummary}</p>
+    <main className="container-page py-10">
+      <h1 className="text-3xl font-bold mb-6">Browse listings</h1>
 
       {/* Filters */}
-      <div className="mt-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <BrowseFilters />
-      </div>
+      <form onSubmit={applyFilters} className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-3">
+        <input
+          name="q"
+          defaultValue={q}
+          placeholder="Search title…"
+          className="w-full border border-gray-300 rounded-md px-3 py-2"
+        />
+        <input
+          name="min"
+          defaultValue={min}
+          type="number"
+          placeholder="Min price"
+          className="w-full border border-gray-300 rounded-md px-3 py-2"
+        />
+        <input
+          name="max"
+          defaultValue={max}
+          type="number"
+          placeholder="Max price"
+          className="w-full border border-gray-300 rounded-md px-3 py-2"
+        />
+        <button
+          type="submit"
+          className="btn primary"
+        >
+          Apply
+        </button>
+      </form>
 
       {/* Results */}
-      <div className="mt-6">
-        {loading ? (
-          <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-600">
-            Loading listings…
-          </div>
-        ) : items.length === 0 ? (
-          <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-600">
-            No listings match your filters.
-          </div>
-        ) : (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {items.map((it) => (
-              <ListingCard key={it.id} listing={it} />
-            ))}
-          </div>
-        )}
-      </div>
+      {loading ? (
+        <p>Loading…</p>
+      ) : items.length === 0 ? (
+        <p>No listings found.</p>
+      ) : (
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((it) => (
+            <ListingCard key={it.id} listing={it} />
+          ))}
+        </div>
+      )}
 
       {/* Pagination */}
-      <div className="mt-8 flex items-center justify-between">
-        <button
-          onClick={() => goTo(Math.max(1, page - 1))}
-          disabled={page <= 1}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm disabled:opacity-50 hover:bg-gray-50"
-        >
-          ← Prev
-        </button>
-        <div className="text-sm text-gray-700">
-          Page <span className="font-semibold">{page}</span> of{" "}
-          <span className="font-semibold">{totalPages}</span>
+      {pages > 1 && (
+        <div className="mt-8 flex items-center gap-2">
+          <button
+            className="btn"
+            disabled={page <= 1}
+            onClick={() => go(page - 1)}
+          >
+            Prev
+          </button>
+          <span className="text-sm text-gray-600">
+            Page {page} / {pages} • {total} results
+          </span>
+          <button
+            className="btn"
+            disabled={page >= pages}
+            onClick={() => go(page + 1)}
+          >
+            Next
+          </button>
         </div>
-        <button
-          onClick={() => goTo(Math.min(totalPages, page + 1))}
-          disabled={page >= totalPages}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm disabled:opacity-50 hover:bg-gray-50"
-        >
-          Next →
-        </button>
-      </div>
+      )}
     </main>
   );
 }

@@ -1,44 +1,133 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import supabase from "../../lib/supabaseClient";
-import UploadBox from "./UploadBox.jsx";
+import supabase from "@/lib/supabaseClient";
 
-export default function ListPage() {
+export default function CreateListingPage() {
   const router = useRouter();
-  const [ready, setReady] = useState(false);
 
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+
+  // form state
+  const [title, setTitle] = useState("");
+  const [price, setPrice] = useState("");
+  const [description, setDescription] = useState("");
+
+  // ensure user is signed in
   useEffect(() => {
-    let done = false;
-
-    const check = async () => {
+    let active = true;
+    (async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      if (!active) return;
       if (!session) {
-        const redirect = "/list";
-        router.replace(`/login?redirect=${encodeURIComponent(redirect)}`);
+        router.replace(`/login?redirect=${encodeURIComponent("/list")}`);
         return;
       }
-      if (!done) setReady(true);
-    };
-
-    check();
-    const sub = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session) setReady(true);
-    });
-
-    return () => {
-      done = true;
-      sub?.data?.subscription?.unsubscribe?.();
-    };
+      setLoading(false);
+    })();
+    return () => { active = false; };
   }, [router]);
 
-  if (!ready) return <div style={{ padding: 24 }}>Loading…</div>;
+  const canCreate = useMemo(() => {
+    if (!title.trim()) return false;
+    if (price === "" || Number.isNaN(Number(price))) return false;
+    return true;
+  }, [title, price]);
+
+  async function onCreate(e) {
+    e.preventDefault();
+    if (!canCreate || creating) return;
+
+    setCreating(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not signed in");
+
+      // Insert minimal row; is_public false so it won't appear in Browse until edited/published
+      const payload = {
+        title: title.trim(),
+        price: Number(price),
+        description: description?.trim() || null,
+        is_public: false,
+        owner_id: user.id,
+        status: "draft"
+      };
+
+      const { data, error } = await supabase
+        .from("listings")
+        .insert(payload)
+        .select("id")
+        .single();
+
+      if (error) throw error;
+
+      // Auto-redirect to the edit page with the new ID
+      router.replace(`/list/${data.id}/edit`);
+    } catch (err) {
+      alert(err.message || "Failed to create listing.");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <main className="container-page py-10">
+        <p>Loading…</p>
+      </main>
+    );
+  }
 
   return (
-    <main style={{ maxWidth: 720, margin: "40px auto", padding: "0 16px" }}>
-      <h1>List Your Space</h1>
-      <UploadBox />
+    <main className="container-page py-10 max-w-2xl">
+      <h1 className="text-2xl font-bold mb-6">Create a Listing</h1>
+
+      <form onSubmit={onCreate} className="space-y-5">
+        <div>
+          <label className="block text-sm font-medium mb-1">Title</label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e)=>setTitle(e.target.value)}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-brand-500"
+            placeholder="Cozy backyard pool"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Price (USD per hour)</label>
+          <input
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            value={price}
+            onChange={(e)=>setPrice(e.target.value)}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-brand-500"
+            placeholder="99"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Description</label>
+          <textarea
+            rows={6}
+            value={description}
+            onChange={(e)=>setDescription(e.target.value)}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-brand-500"
+            placeholder="Describe your space…"
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={!canCreate || creating}
+          className="btn primary"
+        >
+          {creating ? "Creating…" : "Create & Continue"}
+        </button>
+      </form>
     </main>
   );
 }

@@ -1,11 +1,13 @@
-export default function CategoryCard({ title, desc }) {
+import Link from "next/link";
+
+export default function CategoryCard({ href, title, subtitle }) {
   return (
-    <div className="card">
-      <div className="card-body">
-        <div className="badge mb-3">{title}</div>
-        <div className="card-title mb-1">{title}</div>
-        <p className="text-sm text-gray-600">{desc}</p>
-      </div>
-    </div>
+    <Link
+      href={href}
+      className="block rounded-xl border border-gray-200 bg-white/90 p-5 shadow-sm transition hover:shadow-md"
+    >
+      <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+      <p className="mt-1 text-sm text-gray-600">{subtitle}</p>
+    </Link>
   );
 }
