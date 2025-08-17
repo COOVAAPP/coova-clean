@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import supabase from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabaseClient";
 import UploadGallery from "@/components/UploadGallery";
 import VideoUpload from "@/components/VideoUpload";
 
@@ -14,7 +14,6 @@ export default function EditListingPage({ params }) {
   const [saving, setSaving] = useState(false);
   const [listing, setListing] = useState(null);
 
-  // form state
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
@@ -30,10 +29,8 @@ export default function EditListingPage({ params }) {
         .select("*")
         .eq("id", listingId)
         .single();
-
       if (!active) return;
       if (error) {
-        console.error(error);
         alert("Failed to load listing.");
       } else if (data) {
         setListing(data);
@@ -45,10 +42,7 @@ export default function EditListingPage({ params }) {
       }
       setLoading(false);
     })();
-
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [listingId]);
 
   const canSave = useMemo(() => {
@@ -63,23 +57,16 @@ export default function EditListingPage({ params }) {
       const payload = {
         title: title.trim(),
         price: Number(price),
-        description: description?.trim() ?? null,
+        description: description?.trim() || null,
         is_public: isPublic,
         status,
         updated_at: new Date().toISOString(),
       };
-
-      const { error } = await supabase
-        .from("listings")
-        .update(payload)
-        .eq("id", listingId);
-
+      const { error } = await supabase.from("listings").update(payload).eq("id", listingId);
       if (error) throw error;
-
       alert("Listing saved.");
       router.refresh();
     } catch (e) {
-      console.error(e);
       alert("Failed to save listing.");
     } finally {
       setSaving(false);
@@ -94,8 +81,7 @@ export default function EditListingPage({ params }) {
       if (error) throw error;
       alert("Listing deleted.");
       router.push("/list");
-    } catch (e) {
-      console.error(e);
+    } catch {
       alert("Failed to delete listing.");
     } finally {
       setSaving(false);
@@ -103,19 +89,11 @@ export default function EditListingPage({ params }) {
   };
 
   if (loading) {
-    return (
-      <main className="container-page py-16">
-        <p className="text-gray-600">Loading…</p>
-      </main>
-    );
+    return <main className="container-page py-16"><p className="text-gray-600">Loading…</p></main>;
   }
 
   if (!listing) {
-    return (
-      <main className="container-page py-16">
-        <p className="text-red-600">Listing not found.</p>
-      </main>
-    );
+    return <main className="container-page py-16"><p className="text-red-600">Listing not found.</p></main>;
   }
 
   return (
@@ -125,15 +103,11 @@ export default function EditListingPage({ params }) {
           <h1 className="text-2xl font-bold">Edit Listing</h1>
           <p className="text-gray-600">ID: {listingId}</p>
         </div>
-        <button
-          onClick={onDelete}
-          className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700"
-        >
+        <button onClick={onDelete} className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700">
           Delete
         </button>
       </header>
 
-      {/* Basic details */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="space-y-5">
           <div>
@@ -141,8 +115,8 @@ export default function EditListingPage({ params }) {
             <input
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-md border-gray-300 focus:ring-2 focus:ring-brand-500"
+              onChange={(e)=>setTitle(e.target.value)}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-brand-500"
               placeholder="Cozy backyard pool"
             />
           </div>
@@ -154,8 +128,8 @@ export default function EditListingPage({ params }) {
               inputMode="decimal"
               step="0.01"
               value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              className="w-full rounded-md border-gray-300 focus:ring-2 focus:ring-brand-500"
+              onChange={(e)=>setPrice(e.target.value)}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-brand-500"
               placeholder="99"
             />
           </div>
@@ -165,20 +139,16 @@ export default function EditListingPage({ params }) {
             <textarea
               rows={6}
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-md border-gray-300 focus:ring-2 focus:ring-brand-500"
+              onChange={(e)=>setDescription(e.target.value)}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-brand-500"
               placeholder="Describe your space…"
             />
           </div>
 
           <div className="flex items-center gap-6">
             <label className="inline-flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={isPublic}
-                onChange={(e) => setIsPublic(e.target.checked)}
-                className="h-4 w-4"
-              />
+              <input type="checkbox" className="h-4 w-4"
+                checked={isPublic} onChange={(e)=>setIsPublic(e.target.checked)} />
               <span className="text-sm">Public (visible in Browse)</span>
             </label>
 
@@ -186,8 +156,8 @@ export default function EditListingPage({ params }) {
               <label className="block text-sm font-medium mb-1">Status</label>
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="rounded-md border-gray-300 focus:ring-2 focus:ring-brand-500"
+                onChange={(e)=>setStatus(e.target.value)}
+                className="rounded-md border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-brand-500"
               >
                 <option value="draft">Draft</option>
                 <option value="active">Active</option>
@@ -207,7 +177,6 @@ export default function EditListingPage({ params }) {
           </div>
         </div>
 
-        {/* Assets */}
         <div className="space-y-10">
           <div>
             <h2 className="text-xl font-semibold mb-3">Photos</h2>

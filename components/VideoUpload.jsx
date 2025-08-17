@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import supabase from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabaseClient";
 import { uploadToBucket, insertAsset, deleteAsset } from "@/lib/supabaseStorage";
 
 const MAX_SECONDS = 180;
@@ -11,7 +11,6 @@ export default function VideoUpload({ listingId }) {
   const [busy, setBusy] = useState(false);
   const inputRef = useRef(null);
 
-  // fetch existing video (limit to 1)
   useEffect(() => {
     let active = true;
     supabase
@@ -21,9 +20,7 @@ export default function VideoUpload({ listingId }) {
       .eq("type", "video")
       .limit(1)
       .single()
-      .then(({ data }) => {
-        if (active) setVideoAsset(data || null);
-      })
+      .then(({ data }) => { if (active) setVideoAsset(data || null); })
       .catch(() => {});
     return () => { active = false; };
   }, [listingId]);
@@ -47,15 +44,12 @@ export default function VideoUpload({ listingId }) {
   async function onChoose(e) {
     const f = e.target.files?.[0];
     if (!f) return;
-
     setBusy(true);
     try {
       const duration_s = await validateDuration(f);
-
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not signed in");
 
-      // remove previous video if exists
       if (videoAsset) {
         await deleteAsset(videoAsset);
         setVideoAsset(null);
@@ -105,12 +99,7 @@ export default function VideoUpload({ listingId }) {
 
       {videoAsset ? (
         <div className="space-y-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <video
-            src={videoAsset.url}
-            controls
-            className="w-full rounded border"
-          />
+          <video src={videoAsset.url} controls className="w-full rounded border" />
           <button className="btn" onClick={remove}>Remove Video</button>
         </div>
       ) : (

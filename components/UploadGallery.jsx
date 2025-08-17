@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import supabase from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabaseClient";
 import { uploadToBucket, insertAsset, deleteAsset } from "@/lib/supabaseStorage";
 
 export default function UploadGallery({ listingId }) {
@@ -9,7 +9,6 @@ export default function UploadGallery({ listingId }) {
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef(null);
 
-  // fetch existing images
   useEffect(() => {
     let active = true;
     supabase
@@ -19,21 +18,17 @@ export default function UploadGallery({ listingId }) {
       .eq("type", "image")
       .order("position", { ascending: true })
       .order("created_at", { ascending: true })
-      .then(({ data }) => {
-        if (active) setAssets(data || []);
-      });
+      .then(({ data }) => { if (active) setAssets(data || []); });
     return () => { active = false; };
   }, [listingId]);
 
   async function onChoose(e) {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
-
     setUploading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not signed in");
-
       let position = (assets[assets.length - 1]?.position ?? -1) + 1;
 
       for (const file of files) {
@@ -50,7 +45,7 @@ export default function UploadGallery({ listingId }) {
         });
 
         position += 1;
-        setAssets((a) => [...a, row]);
+        setAssets(a => [...a, row]);
       }
     } catch (err) {
       alert(err.message);
@@ -63,7 +58,7 @@ export default function UploadGallery({ listingId }) {
   async function remove(asset) {
     if (!confirm("Remove this image?")) return;
     await deleteAsset(asset);
-    setAssets((a) => a.filter(x => x.id !== asset.id));
+    setAssets(a => a.filter(x => x.id !== asset.id));
   }
 
   return (
@@ -83,7 +78,6 @@ export default function UploadGallery({ listingId }) {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
         {assets.map((a) => (
           <div key={a.id} className="relative group border rounded overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={a.url} alt="" className="w-full h-32 object-cover" />
             <button
               onClick={() => remove(a)}
