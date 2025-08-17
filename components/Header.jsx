@@ -16,7 +16,7 @@ export default function Header() {
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden items-center gap-6 text-sm font-medium text-gray-700 md:flex">
+        <nav className="hidden items-center gap-6 text-lg font-medium text-gray-700 md:flex">
           <Link href="/browse" className="hover:text-gray-900">
             Browse
           </Link>
