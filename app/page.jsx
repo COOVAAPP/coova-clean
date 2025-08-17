@@ -1,62 +1,76 @@
-// app/page.jsx
-import SearchBar from "@/components/SearchBar";
-import CategoryCard from "@/components/CategoryCard"; // keep yours; or paste quick version below
-import FeaturedListings from "./(home)/FeaturedListings";
+import Hero from "@/components/Hero";
 
-const HERO =
-  "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/hero.jpeg";
-
-export default function HomePage() {
+export default function Home() {
   return (
-    <>
-      {/* HERO */}
-      <section className="relative w-full">
-        <img
-          src={HERO}
-          alt="Hero"
-          className="h-[68vh] w-full object-cover"
-          fetchPriority="high"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/25 to-transparent" />
-        <div className="absolute inset-0 flex items-center">
-          <div className="container-page">
-            <h1 className="max-w-2xl text-4xl sm:text-5xl font-extrabold text-white drop-shadow">
-              Rent Luxury. <span className="text-blue-200">Share Vibes.</span>
-            </h1>
-            <p className="mt-3 max-w-xl text-white/90">
-              Spaces, cars, and venues—book by the hour. Host your event or
-              find your next creative location.
-            </p>
+    <main className="flex min-h-screen flex-col">
+      {/* Hero Section with Rotating Background + Search */}
+      <Hero />
 
-            <SearchBar />
+      {/* Category Cards */}
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
+        <h2 className="mb-8 text-center text-2xl font-bold text-gray-800">
+          Explore Categories
+        </h2>
+        <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3">
+          {/* Pools & Venues */}
+          <div className="group relative h-56 rounded-xl overflow-hidden shadow hover:shadow-lg transition">
+            <img
+              src="https://source.unsplash.com/600x400/?pool,party"
+              alt="Pools & Venues"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+              <span className="text-lg font-semibold text-white">
+                Pools & Venues
+              </span>
+            </div>
+          </div>
 
-            <div className="mt-5 flex gap-3">
-              <a href="/browse" className="btn btn-primary rounded-full">Find a Space</a>
-              <a href="/list" className="btn btn-outline rounded-full">Become a Host</a>
+          {/* Luxury Cars */}
+          <div className="group relative h-56 rounded-xl overflow-hidden shadow hover:shadow-lg transition">
+            <img
+              src="https://source.unsplash.com/600x400/?luxury,car"
+              alt="Luxury Cars"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+              <span className="text-lg font-semibold text-white">
+                Luxury Cars
+              </span>
+            </div>
+          </div>
+
+          {/* Unique Spaces */}
+          <div className="group relative h-56 rounded-xl overflow-hidden shadow hover:shadow-lg transition">
+            <img
+              src="https://source.unsplash.com/600x400/?studio,loft"
+              alt="Unique Spaces"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+              <span className="text-lg font-semibold text-white">
+                Unique Spaces
+              </span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* CATEGORIES */}
-      <section className="container-page py-12">
-        <h2 className="text-2xl font-bold mb-6">Explore categories</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <CategoryCard title="Pools & Venues" desc="Host birthdays, shoots, and pop-ups." />
-          <CategoryCard title="Luxury Cars" desc="Short‑term rentals for special occasions." />
-          <CategoryCard title="Unique Spaces" desc="Lofts, rooftops, studios, and more." />
-        </div>
+      {/* CTA Section */}
+      <section className="bg-brand-600 py-12 text-white text-center">
+        <h2 className="text-3xl font-bold">
+          Become a Host and Earn with Your Space
+        </h2>
+        <p className="mt-3 max-w-2xl mx-auto">
+          List your pool, car, or creative venue and start generating income today.
+        </p>
+        <a
+          href="/host"
+          className="mt-6 inline-block rounded-full bg-white px-6 py-3 font-semibold text-brand-600 shadow hover:bg-gray-100"
+        >
+          Start Hosting
+        </a>
       </section>
-
-      {/* FEATURED LISTINGS */}
-      <section className="container-page pb-16">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold">Featured listings</h2>
-          <a href="/browse" className="text-sm underline">See all</a>
-        </div>
-        {/* Server component pulls from Supabase */}
-        <FeaturedListings />
-      </section>
-    </>
+    </main>
   );
 }
