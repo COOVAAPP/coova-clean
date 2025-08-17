@@ -8,11 +8,11 @@ export default function Header() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-black/5 bg-white/80 backdrop-blur">
+    <header className="sticky top-0 z-40 w-full border-b border-black/5 bg-[#9EFCFF] backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         {/* Brand */}
-        <Link href="/" className="text-lg font-bold tracking-wide">
-          COOVA◡
+        <Link href="/" className="text-2xl font-bold tracking-wide">
+          COOVA
         </Link>
 
         {/* Desktop nav */}
