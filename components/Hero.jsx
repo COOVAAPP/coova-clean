@@ -39,7 +39,7 @@ export default function Hero() {
         <h1 className="text-3xl font-bold text-white sm:text-4xl md:text-5xl">
           Rent Luxury. <span className="text-brand-500">Share Good Vibes.</span>
         </h1>
-        <p className="mt-3 max-w-xl text-aqua-500">
+        <p className="mt-3 max-w-xl text-cyan-500">
           Spaces, cars, and venues—book by the hour. Host your event or find your next creative location.
         </p>
 
