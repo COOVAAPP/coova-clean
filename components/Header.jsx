@@ -1,34 +1,26 @@
 "use client";
+
 import Link from "next/link";
 import { useState } from "react";
-import AuthModal from "@/components/AuthModal";
 
 export default function Header() {
-  const [authOpen, setAuthOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <header
-      className="
-        sticky top-0 z-40 border-b border-black/10
-        bg-[#9EFCFF] supports-[backdrop-filter]:bg-[#9EFCFF]/90 backdrop-blur
-      "
+      className="sticky top-0 z-40 border-b border-black/10 bg-[#9EFCFF]/90 backdrop-blur"
+      role="banner"
     >
       <div className="container-page h-16 flex items-center justify-between">
         {/* Brand */}
-        <Link href="/" className="font-semibold tracking-wide">COOVA</Link>
+        <Link href="/" className="font-semibold tracking-wide">
+          COOVA
+        </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden sm:flex items-center gap-6 text-sm">
+        <nav className="hidden sm:flex items-center gap-6 text-sm" aria-label="Primary">
           <Link href="/browse" className="hover:opacity-80">Browse</Link>
-
-          {/* Open modal instead of /login */}
-          <button
-            onClick={() => setAuthOpen(true)}
-            className="hover:opacity-80"
-          >
-            Log in / Sign up
-          </button>
-
+          <Link href="/login" className="hover:opacity-80">Login</Link>
           <Link
             href="/list"
             className="rounded-full bg-black text-white px-4 py-2 text-sm hover:opacity-90"
@@ -37,34 +29,34 @@ export default function Header() {
           </Link>
         </nav>
 
-
         {/* Mobile menu button */}
         <button
-          className="sm:hidden inline-flex items-center justify-center h-9 w-9 rounded-md border border-black/10 text-white bg-[#13D4D4]"
-          onClick={() => setOpen((v) => !v)}
-          aria-label="Toggle Menu"
+          type="button"
+          className="sm:hidden inline-flex items-center justify-center h-9 w-9 rounded-md border border-black/10 text-white"
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-label="Toggle menu"
+          aria-expanded={menuOpen}
+          aria-controls="mobile-menu"
         >
           <span className="i-lucide-menu h-5 w-5" />
         </button>
       </div>
 
       {/* Mobile menu */}
-      {open && (
-        <div className="sm:hidden border-t border-black/10 bg-[#9EFCFF]">
+      {menuOpen && (
+        <div
+          id="mobile-menu"
+          className="sm:hidden border-t border-black/10 bg-[#9EFCFF]"
+          role="navigation"
+          aria-label="Mobile"
+        >
           <nav className="container-page py-3 flex flex-col gap-2 text-sm">
             <Link href="/browse" className="py-1">Browse</Link>
-            <button className="py-1 text-left" onClick={() => { setIntent(null); setAuthOpen(true); }}>
-              Login
-            </button>
-            <button className="py-1 text-left" onClick={() => { setIntent("/list"); setAuthOpen(true); }}>
-              List Your Space
-            </button>
+            <Link href="/login" className="py-1">Login</Link>
+            <Link href="/list" className="py-1">List Your Space</Link>
           </nav>
         </div>
       )}
-
-      {/* Auth Modal */}
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} intent={intent} />
     </header>
   );
 }
