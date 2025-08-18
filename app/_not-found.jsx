@@ -1,19 +1,19 @@
-// app/not-found.js
-import Link from "next/link";
-
+// app/not-found.jsx (or app/<segment>/not-found.jsx)
 export default function NotFound() {
   return (
     <main className="container-page py-16">
-      <h1 className="text-2xl font-bold">Page not found</h1>
-      <p className="mt-2 text-gray-600">
-        The page you requested could not be found.
+      <h1 className="text-3xl font-bold mb-4">Page not found</h1>
+      <p className="text-gray-600">
+        We couldn’t find the page you’re looking for.
       </p>
-      <Link
+      <a
         href="/"
-        className="mt-6 inline-block rounded-full bg-brand-600 px-5 py-2 text-white hover:bg-brand-700"
+        className="inline-block mt-6 rounded-full bg-[#13D4D4] px-6 py-3 text-white font-semibold hover:opacity-90"
       >
         Go Home
-      </Link>
+      </a>
     </main>
   );
 }
+// ⚠️ No imports, no "use client", no maps/spreads, no hooks.
+// Keep this file totally static.
