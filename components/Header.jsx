@@ -5,7 +5,7 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-black/10 bg-[#9EFCFF]/90 backdrop-blur">
       <div className="container-page h-16 flex items-center justify-between">
-        <Link href="/" className="font-semibold tracking-wide">COOVA</Link>
+        <Link href="/" className="text-5xl font-bold text-white tracking-wide">COOVA</Link>
 
         <nav className="hidden sm:flex items-center gap-6 text-sm">
           <Link href="/browse" className="hover:opacity-80">Browse</Link>
