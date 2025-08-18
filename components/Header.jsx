@@ -13,7 +13,7 @@ export default function Header() {
     >
       <div className="container-page h-16 flex items-center justify-between">
         {/* Brand */}
-        <Link href="/" className="font-semibold tracking-wide">
+        <Link href="/" className="text-3xl font-bold text-white tracking-wide">
           COOVA
         </Link>
 
