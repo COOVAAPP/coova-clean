@@ -1,4 +1,8 @@
 @import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 @keyframes heroFade {
   /* 24s total cycle, each slide visible ~8s */
   0%, 8%   { opacity: 0; }
