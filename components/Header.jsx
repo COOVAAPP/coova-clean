@@ -31,7 +31,7 @@ export default function Header() {
 
         {/* Mobile menu button */}
         <button
-          className="sm:hidden inline-flex items-center justify-center h-9 w-9 rounded-md border border-black/10"
+          className="sm:hidden inline-flex items-center justify-center h-9 w-9 rounded-md border border-black/10 text-white"
           onClick={() => setOpen(v => !v)}
           aria-label="Toggle Menu"
         >
