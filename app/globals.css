@@ -1,4 +1,15 @@
 @import "tailwindcss";
+@keyframes heroFade {
+  /* 24s total cycle, each slide visible ~8s */
+  0%, 8%   { opacity: 0; }
+  8%, 33%  { opacity: 1; }
+  41%, 100%{ opacity: 0; }
+}
+
+.animate-fade    { animation: heroFade 24s infinite; }
+.animate-delay-0 { animation-delay: 0s; }
+.animate-delay-8s{ animation-delay: 8s; }
+.animate-delay-16s{ animation-delay: 16s; }
 
 .btn{
   @apply inline-flex items-center justify-center rounded-md px-4 py-2 font-semibold transition;
@@ -23,3 +34,4 @@ html, body {
 body {
   @apply bg-white text-slate-800 antialiased;
 }
+
