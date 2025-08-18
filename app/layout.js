@@ -1,5 +1,6 @@
 import "./globals.css";
 import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 
 export const metadata = { title: "COOVA", description: "Rent luxury, share vibes." };
 export const viewport = { width: "device-width", initialScale: 1 };
@@ -10,6 +11,7 @@ export default function RootLayout({ children }) {
       <body className="min-h-screen bg-gray-50 text-gray-900 antialiased">
         <Header />
         <main id="app-root" className="min-h-[calc(100vh-200px)]">{children}</main>
+        <Footer />
         <div id="modal-root" />
       </body>
     </html>
