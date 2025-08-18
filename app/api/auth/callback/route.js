@@ -1,30 +1,22 @@
 import { NextResponse } from "next/server";
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
-
-export const dynamic = "force-dynamic";
 
 export async function GET(request) {
-  const url = new URL(request.url);
-  const code = url.searchParams.get("code");
-  const redirect = url.searchParams.get("redirect") || "/";
-
-  const cookieStore = cookies();
-  const supabase = createServerClient(
-    "https://opnqqloemtaaowfttafs.supabase.co",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9wbnFxbG9lbXRhYW93ZnR0YWZzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NDYyODgyMCwiZXhwIjoyMDcwMjA0ODIwfQ.DpDHR2gqgiXDCHVYLlbpDgarc_iyNBr7__HDKKqsHxA",
-    {
-      cookies: {
-        get: (name) => cookieStore.get(name)?.value,
-        set: (name, value, options) => cookieStore.set(name, value, options),
-        remove: (name, options) => cookieStore.set(name, "", { ...options, maxAge: 0 }),
-      },
-    }
-  );
+  const { searchParams, origin } = new URL(request.url);
+  const code = searchParams.get("code");
+  // Where we should return after setting the session
+  const redirect = searchParams.get("redirect") || "/";
 
   if (code) {
+    const supabase = createRouteHandlerClient({ cookies });
+    // Exchange the code for a session & set cookies server-side
     await supabase.auth.exchangeCodeForSession(code);
   }
 
-  return NextResponse.redirect(new URL(redirect, request.url));
+  // Redirect back to the intended page (absolute URL required)
+  const url = redirect.startsWith("http")
+    ? redirect
+    : `${origin}${redirect}`;
+  return NextResponse.redirect(url);
 }

@@ -7,7 +7,7 @@ import AuthModal from "@/components/AuthModal";
 export default function Header() {
   const [open, setOpen] = useState(false);       // mobile menu
   const [authOpen, setAuthOpen] = useState(false); // auth modal
-
+  const [intent, setIntent] = useState(null);
   return (
     <header className="sticky top-0 z-40 border-b border-black/10 bg-[#9EFCFF]/90 supports-[backdrop-filter]:bg-[#9EFCFF]/90 backdrop-blur">
       <div className="container-page h-16 flex items-center justify-between">
@@ -19,13 +19,13 @@ export default function Header() {
           <Link href="/browse" className="hover:opacity-80">Browse</Link>
 
           {/* Open modal instead of /login */}
-          <button onClick={() => setAuthOpen(true)} className="hover:opacity-80">
+          <button onClick={() => { setIntent(null); setAuthOpen(true); }} className="hover:opacity-80">
             Login
           </button>
 
           {/* Open modal for Sign Up */}
           <button
-            onClick={() => setAuthOpen(true)}
+            onClick={() => { setIntent("/list"); setAuthOpen(true)}}
             className="rounded-full bg-black text-white px-4 py-2 text-sm hover:opacity-90"
           >
             List Your Space
@@ -34,7 +34,7 @@ export default function Header() {
 
         {/* Mobile menu button */}
         <button
-          className="sm:hidden inline-flex items-center justify-center h-9 w-9 rounded-md border border-black/10 text-white"
+          className="sm:hidden inline-flex items-center justify-center h-9 w-9 rounded-md border border-black/10 text-white bg-[#13D4D4]"
           onClick={() => setOpen((v) => !v)}
           aria-label="Toggle Menu"
         >
@@ -47,10 +47,10 @@ export default function Header() {
         <div className="sm:hidden border-t border-black/10 bg-[#9EFCFF]">
           <nav className="container-page py-3 flex flex-col gap-2 text-sm">
             <Link href="/browse" className="py-1">Browse</Link>
-            <button onClick={() => setAuthOpen(true)} className="py-1 text-left">
+            <button className="py-1 text-left" onClick={() => { setIntent(null); setAuthOpen(true); }}>
               Login
             </button>
-            <button onClick={() => setAuthOpen(true)} className="py-1 text-left">
+            <button className="py-1 text-left" onClick={() => { setIntent("/list"); setAuthOpen(true); }}>
               List Your Space
             </button>
           </nav>
@@ -58,7 +58,7 @@ export default function Header() {
       )}
 
       {/* Auth Modal */}
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} intent={intent} />
     </header>
   );
 }
