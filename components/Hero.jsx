@@ -27,7 +27,7 @@ export default function Hero() {
       <div className="absolute inset-0 bg-gradient-to-b from-black/40 to-black/20" />
       <div className="relative z-10 container-page py-20 sm:py-28 text-white">
         <h1 className="text-4xl sm:text-5xl font-bold">Rent Luxury. Share Good Vibes.</h1>
-        <p className="mt-3 max-w-2xl text-white/90">
+        <p className="mt-3 max-w-2xl font-bold text-cyan-500">
           Spaces, cars, and venues—book by the hour. Host your event or find your next creative location.
         </p>
       </div>
