@@ -1,4 +1,6 @@
 // app/not-found.js
+import Link from "next/link";
+
 export default function NotFound() {
   return (
     <main className="min-h-[60vh] flex items-center justify-center">
