@@ -35,7 +35,7 @@ export default function Header() {
           onClick={() => setOpen(v => !v)}
           aria-label="Toggle Menu"
         >
-          <span className="i-lucide-menu h-5 w-5" />
+          <span className="i-lucide-menu h-5 w-5 text-white" />
         </button>
       </div>
 
