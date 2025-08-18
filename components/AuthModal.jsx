@@ -1,189 +1,170 @@
-"use client";
+// components/AuthModal.jsx
+'use client';
 
-import { useEffect, useRef, useState } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
+import { useRouter } from 'next/navigation';
 
 export default function AuthModal({ open, onClose }) {
-  const supabase = createClientComponentClient();
   const router = useRouter();
-  const [mode, setMode] = useState("signup"); // "signup" | "signin"
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const panelRef = useRef(null);
+  const [step, setStep] = useState('enter'); // 'enter' | 'verify'
+  const [phone, setPhone] = useState('');
+  const [code, setCode] = useState('');
+  const [sending, setSending] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [err, setErr] = useState('');
 
+  // Reset when opened/closed
   useEffect(() => {
-    function onKey(e) {
-      if (e.key === "Escape") onClose?.();
+    if (open) {
+      setStep('enter');
+      setPhone('');
+      setCode('');
+      setErr('');
     }
-    if (open) document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open]);
+
+  // naive US-only E.164 sanitize (change if you support more countries)
+  const e164 = useMemo(() => {
+    let p = phone.replace(/[^\d+]/g, '');
+    if (!p.startsWith('+')) {
+      // assume US
+      if (p.length === 10) p = `+1${p}`;
+    }
+    return p;
+  }, [phone]);
+
+  async function sendCode(e) {
+    e.preventDefault();
+    setErr('');
+    if (!e164 || e164.length < 10) {
+      setErr('Please enter a valid phone number.');
+      return;
+    }
+    setSending(true);
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        phone: e164,
+        options: { shouldCreateUser: true }, // sign up or log in
+      });
+      if (error) throw error;
+      setStep('verify');
+    } catch (ex) {
+      setErr(ex.message || 'Failed to send code. Please try again.');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function verifyCode(e) {
+    e.preventDefault();
+    setErr('');
+    if (!code || code.length < 4) {
+      setErr('Enter the code you received.');
+      return;
+    }
+    setVerifying(true);
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone: e164,
+        token: code,
+        type: 'sms',
+      });
+      if (error) throw error;
+      // success: session is set on the client
+      onClose?.();
+      router.refresh();
+    } catch (ex) {
+      setErr(ex.message || 'Invalid code. Please try again.');
+    } finally {
+      setVerifying(false);
+    }
+  }
 
   if (!open) return null;
 
-  async function handleEmailSubmit(e) {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo:
-              typeof window !== "undefined"
-                ? `${window.location.origin}/api/auth/callback`
-                : undefined,
-          },
-        });
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
-      }
-      onClose?.();
-      router.refresh();
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleGoogle() {
-    setLoading(true);
-    try {
-      const origin =
-        typeof window !== "undefined" ? window.location.origin : "";
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${origin}/api/auth/callback`,
-        },
-      });
-      if (error) throw error;
-      // Supabase will redirect; modal will close on return
-    } catch (err) {
-      alert(err.message);
-      setLoading(false);
-    }
-  }
-
   return (
-    <div
-      className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center px-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose?.();
-      }}
-    >
-      <div
-        ref={panelRef}
-        className="w-full max-w-md rounded-2xl bg-white shadow-xl"
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setMode("signup")}
-              className={`px-3 py-1 rounded-md text-sm font-semibold ${
-                mode === "signup" ? "bg-[#13D4D4] text-black" : "text-gray-600"
-              }`}
-            >
-              Sign up
-            </button>
-            <button
-              onClick={() => setMode("signin")}
-              className={`px-3 py-1 rounded-md text-sm font-semibold ${
-                mode === "signin" ? "bg-[#13D4D4] text-black" : "text-gray-600"
-              }`}
-            >
-              Log in
-            </button>
-          </div>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+
+      {/* Modal */}
+      <div className="relative w-[92%] max-w-md rounded-2xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b px-5 py-4">
+          <h3 className="text-lg font-semibold">
+            {step === 'enter' ? 'Log In or Sign Up' : 'Enter Verification Code'}
+          </h3>
           <button
             onClick={onClose}
-            className="rounded-md p-2 text-gray-500 hover:bg-gray-100"
+            className="rounded-md px-2 py-1 text-gray-500 hover:bg-gray-100"
             aria-label="Close"
           >
             ✕
           </button>
         </div>
 
-        {/* Body */}
-        <div className="px-6 py-5">
-          <h3 className="text-xl font-semibold mb-3">
-            {mode === "signup" ? "Welcome to COOVA!" : "Welcome back"}
-          </h3>
-          <p className="text-sm text-gray-600 mb-6">
-            {mode === "signup"
-              ? "Create your account to start booking or hosting."
-              : "Log in to continue."}
-          </p>
+        <div className="px-5 py-6">
+          {step === 'enter' && (
+            <form onSubmit={sendCode} className="space-y-4">
+              <label className="block text-sm font-medium">Phone number</label>
+              <input
+                type="tel"
+                inputMode="tel"
+                placeholder="(555) 555-5555"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-brand-500"
+              />
 
-          <form onSubmit={handleEmailSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email
+              {err && <p className="text-sm text-red-600">{err}</p>}
+
+              <button
+                type="submit"
+                disabled={sending}
+                className="btn primary w-full"
+              >
+                {sending ? 'Sending…' : 'Send Code'}
+              </button>
+
+              <p className="pt-2 text-center text-xs text-gray-500">
+                Message and data rates may apply.
+              </p>
+            </form>
+          )}
+
+          {step === 'verify' && (
+            <form onSubmit={verifyCode} className="space-y-4">
+              <label className="block text-sm font-medium">
+                Code sent to <span className="font-semibold">{e164}</span>
               </label>
               <input
-                type="email"
-                required
-                className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-[#13D4D4]"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                type="text"
+                inputMode="numeric"
+                placeholder="123456"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 tracking-widest focus:ring-2 focus:ring-brand-500"
               />
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Password
-              </label>
-              <input
-                type="password"
-                required
-                className="w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-[#13D4D4]"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-              />
-            </div>
+              {err && <p className="text-sm text-red-600">{err}</p>}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-full bg-black text-white py-2 font-semibold hover:opacity-90 disabled:opacity-60"
-            >
-              {loading
-                ? "Please wait…"
-                : mode === "signup"
-                ? "Create account"
-                : "Log in"}
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={verifying}
+                className="btn primary w-full"
+              >
+                {verifying ? 'Verifying…' : 'Verify & Continue'}
+              </button>
 
-          <div className="my-5 flex items-center gap-3">
-            <div className="h-px flex-1 bg-gray-200" />
-            <span className="text-xs text-gray-500">OR</span>
-            <div className="h-px flex-1 bg-gray-200" />
-          </div>
-
-          <button
-            onClick={handleGoogle}
-            disabled={loading}
-            className="w-full rounded-full border py-2 font-semibold hover:bg-gray-50 disabled:opacity-60"
-          >
-            Continue with Google
-          </button>
-
-          <p className="mt-4 text-xs text-gray-500">
-            By continuing, you agree to the Terms & Privacy Policy.
-          </p>
+              <button
+                type="button"
+                onClick={() => setStep('enter')}
+                className="w-full rounded-md border border-gray-300 py-2 text-sm hover:bg-gray-50"
+              >
+                Change phone number
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </div>
