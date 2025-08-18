@@ -76,7 +76,7 @@ export default function Home() {
 </section>
       
     {/* CTA */}
-      <section className="bg-brand-600 py-12 text-white">
+      <section className="bg-brand-600 py-12 text-cyan-500">
         <h2 className="text-center text-3xl font-bold">Become a Host and Earn with Your Space</h2>
         <p className="mx-auto mt-3 max-w-2xl text-center">
           List your pool, backyard, car, or creative venue space and start generating income today.
@@ -84,7 +84,7 @@ export default function Home() {
         <div className="mt-6 text-center">
           <Link
             href="/list"
-            className="inline-block rounded-full bg-white px-6 py-3 font-semibold text-brand-600 shadow hover:bg-gray-100"
+            className="inline-block rounded-full bg-white px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-gray-100"
           >
             Start Hosting
           </Link>
