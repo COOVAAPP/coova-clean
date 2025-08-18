@@ -1,5 +1,6 @@
 // app/page.jsx
 "use client";
+import SafeHero from "@/components/SafeHero";
 
 export default function Home() {
   return (
