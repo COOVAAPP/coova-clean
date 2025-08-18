@@ -2,8 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabaseClient";
-import AuthModal from "@/components/AuthModal";
+
+const AuthModal = dynamic(() => import("@/components/AuthModal"), {
+  ssr: false,
+});
 
 export default function Header() {
   const [showAuth, setShowAuth] = useState(false);
