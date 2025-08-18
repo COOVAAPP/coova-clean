@@ -1,13 +1,11 @@
 // app/page.jsx
-"use client";
+export const dynamic = "force-dynamic";
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col">
-      <section className="container-page py-16">
-        <h1 className="text-3xl font-bold">COOVA</h1>
-        <p className="mt-2 text-gray-700">Minimal home used to isolate build crash.</p>
-      </section>
-    </main>
+    <div style={{ padding: 24 }}>
+      <h1 style={{ fontSize: 24, fontWeight: 700 }}>COOVA — Health Check</h1>
+      <p>Minimal home page to isolate build crash.</p>
+    </div>
   );
 }
