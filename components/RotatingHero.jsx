@@ -2,42 +2,44 @@
 
 import { useEffect, useState } from "react";
 
-export default function RotatingHero({ images, interval = 8000, children }) {
-  // two-layer crossfade
-  const [showA, setShowA] = useState(true);
-  const [aIdx, setAIdx] = useState(0);
-  const [bIdx, setBIdx] = useState(images.length > 1 ? 1 : 0);
+const IMAGES = [
+  "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg1.jpg",
+  "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg2.jpg",
+  "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg3.jpg",
+];
+
+export default function RotatingHero() {
+  const [index, setIndex] = useState(0);
 
   useEffect(() => {
     const id = setInterval(() => {
-      if (showA) {
-        // prepare B with next, then fade to B
-        setBIdx((prev) => (prev + 1) % images.length);
-      } else {
-        // prepare A with next, then fade to A
-        setAIdx((prev) => (prev + 1) % images.length);
-      }
-      setShowA((s) => !s);
-    }, interval);
+      setIndex((prev) => (prev + 1) % IMAGES.length);
+    }, 6000);
     return () => clearInterval(id);
-  }, [showA, images.length, interval]);
+  }, []);
+
+  const current = IMAGES[index];
 
   return (
     <section className="relative h-[420px] w-full overflow-hidden">
-      {/* Layer A */}
+      {/* Background */}
       <div
-        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-700 ${showA ? "opacity-100" : "opacity-0"}`}
-        style={{ backgroundImage: `url(${images[aIdx]})` }}
+        className="absolute inset-0 bg-center bg-cover transition-opacity duration-700"
+        style={{ backgroundImage: `url(${current})` }}
       />
-      {/* Layer B */}
-      <div
-        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-700 ${showA ? "opacity-0" : "opacity-100"}`}
-        style={{ backgroundImage: `url(${images[bIdx]})` }}
-      />
-      {/* Dark overlay */}
       <div className="absolute inset-0 bg-black/40" />
+
       {/* Content */}
-      <div className="relative z-10">{children}</div>
+      <div className="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 h-full flex items-center">
+        <div className="text-white max-w-xl">
+          <h1 className="text-3xl sm:text-4xl font-bold">
+            Rent Luxury. Share Good Vibes.
+          </h1>
+          <p className="mt-3 text-white/90">
+            Spaces, cars, and venues—book by the hour. Host your event or find your next creative location.
+          </p>
+        </div>
+      </div>
     </section>
   );
 }
