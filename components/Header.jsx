@@ -1,15 +1,18 @@
 "use client";
-
 import Link from "next/link";
 import { useState } from "react";
 import AuthModal from "@/components/AuthModal";
 
 export default function Header() {
-  const [open, setOpen] = useState(false);       // mobile menu
-  const [authOpen, setAuthOpen] = useState(false); // auth modal
-  const [intent, setIntent] = useState(null);
+  const [authOpen, setAuthOpen] = useState(false);
+
   return (
-    <header className="sticky top-0 z-40 border-b border-black/10 bg-[#9EFCFF]/90 supports-[backdrop-filter]:bg-[#9EFCFF]/90 backdrop-blur">
+    <header
+      className="
+        sticky top-0 z-40 border-b border-black/10
+        bg-[#9EFCFF] supports-[backdrop-filter]:bg-[#9EFCFF]/90 backdrop-blur
+      "
+    >
       <div className="container-page h-16 flex items-center justify-between">
         {/* Brand */}
         <Link href="/" className="font-semibold tracking-wide">COOVA</Link>
@@ -19,18 +22,21 @@ export default function Header() {
           <Link href="/browse" className="hover:opacity-80">Browse</Link>
 
           {/* Open modal instead of /login */}
-          <button onClick={() => { setIntent(null); setAuthOpen(true); }} className="hover:opacity-80">
-            Login
+          <button
+            onClick={() => setAuthOpen(true)}
+            className="hover:opacity-80"
+          >
+            Log in / Sign up
           </button>
 
-          {/* Open modal for Sign Up */}
-          <button
-            onClick={() => { setIntent("/list"); setAuthOpen(true)}}
+          <Link
+            href="/list"
             className="rounded-full bg-black text-white px-4 py-2 text-sm hover:opacity-90"
           >
             List Your Space
-          </button>
+          </Link>
         </nav>
+
 
         {/* Mobile menu button */}
         <button
