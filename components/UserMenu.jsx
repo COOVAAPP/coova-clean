@@ -73,7 +73,7 @@ export default function UserMenu() {
     <div className="relative" ref={panelRef}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-600 text-white font-semibold shadow hover:opacity-90"
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-cyan-500 font-extrabold shadow hover:opacity-90"
         aria-label="Account menu"
       >
         {initials}
