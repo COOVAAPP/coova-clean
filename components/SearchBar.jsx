@@ -1,22 +1,25 @@
-'use client';
+// components/SearchBar.jsx
+"use client";
+
+import { useSearchParams } from "next/navigation";
+import { useMemo } from "react";
 
 export default function SearchBar() {
+  const params = useSearchParams();
+
+  // Example: read current values safely
+  const query = useMemo(() => params.get("q") || "", [params]);
+
   return (
-    <form
-      className="w-full max-w-3xl mx-auto mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3 bg-white/90 p-2 rounded-full shadow-lg"
-      onSubmit={(e) => e.preventDefault()}
-    >
+    <form action="/browse" className="mt-5 grid max-w-2xl grid-cols-12 gap-2 rounded-full bg-white/95 p-2 shadow-lg backdrop-blur">
       <input
-        className="input rounded-full"
-        placeholder="I want… (Pools, Cars, Studios)"
-        aria-label="Category"
+        type="text"
+        name="q"
+        defaultValue={query}
+        placeholder="I want… (Pools, Cars, Studio)"
+        className="col-span-9 rounded-full px-4 py-2 text-[15px] outline-none"
       />
-      <input
-        className="input rounded-full"
-        placeholder="Location"
-        aria-label="Location"
-      />
-      <button type="submit" className="btn btn-primary rounded-full">
+      <button className="col-span-3 rounded-full bg-brand-600 px-4 py-2 font-semibold text-white hover:bg-brand-700">
         Search
       </button>
     </form>
