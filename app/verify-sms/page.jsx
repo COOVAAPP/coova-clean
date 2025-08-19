@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
+// Make this route always dynamic and never cached
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 export const revalidate = 0;
 
 export default function VerifySmsPage() {
@@ -20,7 +22,9 @@ export default function VerifySmsPage() {
   const [msg, setMsg] = useState(null);
   const [err, setErr] = useState(null);
 
-  useEffect(() => { setPhone(phoneFromQuery); }, [phoneFromQuery]);
+  useEffect(() => {
+    setPhone(phoneFromQuery);
+  }, [phoneFromQuery]);
 
   const canVerify = useMemo(() => {
     if (!phone?.trim()) return false;
@@ -32,7 +36,6 @@ export default function VerifySmsPage() {
     e.preventDefault();
     setErr(null);
     setMsg(null);
-
     if (!canVerify) return;
 
     setLoading(true);
@@ -45,14 +48,8 @@ export default function VerifySmsPage() {
       if (error) throw error;
 
       setMsg("Success! Signing you in…");
-      // fetch session to be safe, then redirect
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        router.replace(redirect);
-      } else {
-        // fallback: go home
-        router.replace("/");
-      }
+      router.replace(session ? redirect : "/");
     } catch (e) {
       setErr(e?.message || "Invalid code. Please try again.");
     } finally {
@@ -100,7 +97,8 @@ export default function VerifySmsPage() {
         </button>
 
         <p className="pt-2 text-center text-sm text-gray-500">
-          Didn’t get a code? Go back and resend from the <a href="/login" className="text-brand-500 hover:text-brand-600">login</a> screen.
+          Didn’t get a code? Go back and resend on the{" "}
+          <a href="/login" className="text-brand-500 hover:text-brand-600">login</a> screen.
         </p>
       </form>
     </main>
