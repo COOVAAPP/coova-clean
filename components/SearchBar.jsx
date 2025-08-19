@@ -19,7 +19,7 @@ export default function SearchBar() {
         placeholder="I want… (Pools, Cars, Studio)"
         className="col-span-9 rounded-full px-4 py-2 text-[15px] outline-none"
       />
-      <button className="col-span-3 rounded-full bg-brand-600 px-4 py-2 font-semibold text-white hover:bg-brand-700">
+      <button className="col-span-3 rounded-full bg-brand-600 px-4 py-2 font-semibold text-black hover:bg-brand-700">
         Search
       </button>
     </form>
