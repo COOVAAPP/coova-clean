@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabaseClient";
 // Make this route always dynamic and never cached
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
-export const revalidate = 0;
+export const revalidate = false;
 
 export default function VerifySmsPage() {
   const router = useRouter();
