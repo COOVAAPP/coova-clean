@@ -56,7 +56,7 @@ export default function Header() {
     <header className="sticky top-0 z-40 border-b border-black/10 bg-[#9EFCFF]/90 backdrop-blur">
       <div className="container-page h-16 flex items-center justify-between">
         {/* Brand */}
-        <Link href="/" className="text-4xl font-bold tracking-wide text-white">
+        <Link href="/" className="text-4xl font-extrabold tracking-wide text-white">
           COOVA
         </Link>
 
