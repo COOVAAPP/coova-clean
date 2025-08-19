@@ -1,199 +1,143 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { useEffect, useState } from "react";
 
-const TABS = ["email", "phone"];
-const cn = (...c) => c.filter(Boolean).join(" ");
-
-export default function AuthModal({ open, onClose }) {
-  const [mounted, setMounted] = useState(false);
-
-  // tab + form state
-  const [tab, setTab] = useState("email");
+/**
+ * Props:
+ *  - onClose?: () => void
+ */
+export default function AuthModal({ onClose }) {
+  const [activeTab, setActiveTab] = useState("email"); // "email" | "phone"
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState(""); // E.164 format e.g. +15551234567
-  const [code, setCode] = useState("");   // 6-digit OTP
+  const [phone, setPhone] = useState("");
 
-  // ui state
-  const [sending, setSending] = useState(false);
-  const [verifying, setVerifying] = useState(false);
-  const [message, setMessage] = useState("");
-
+  // Close on ESC
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    const onKey = (e) => {
+      if (e.key === "Escape" && onClose) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
-  if (!mounted || !open) return null;
-
-  async function signInWithGoogle() {
-    setMessage("");
-    const { error } = await supabase.auth.signInWithOAuth({ provider: "google" });
-    if (error) setMessage(error.message);
-  }
-
-  async function sendMagicLink() {
-    if (!email) return;
-    setSending(true);
-    setMessage("");
-    try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          // Adjust if you’re using a dedicated callback route
-          emailRedirectTo: `${window.location.origin}/api/auth/callback`,
-        },
-      });
-      if (error) throw error;
-      setMessage("Magic link sent. Check your email.");
-    } catch (err) {
-      setMessage(err.message || "Failed to send magic link.");
-    } finally {
-      setSending(false);
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (activeTab === "email") {
+      // TODO: Hook to Supabase email magic link or OAuth
+      console.log("Email login:", email);
+    } else {
+      // TODO: Hook to Supabase SMS (Twilio) OTP
+      console.log("Phone login:", phone);
     }
-  }
-
-  async function sendSmsCode() {
-    if (!phone) return;
-    setSending(true);
-    setMessage("");
-    try {
-      const { error } = await supabase.auth.signInWithOtp({ phone });
-      if (error) throw error;
-      setMessage("We sent you a code via SMS.");
-    } catch (err) {
-      setMessage(err.message || "Failed to send SMS code.");
-    } finally {
-      setSending(false);
-    }
-  }
-
-  async function verifySms() {
-    if (!phone || !code) return;
-    setVerifying(true);
-    setMessage("");
-    try {
-      const { error } = await supabase.auth.verifyOtp({
-        phone,
-        token: code,
-        type: "sms",
-      });
-      if (error) throw error;
-      onClose?.(); // close modal on success
-    } catch (err) {
-      setMessage(err.message || "Invalid code. Try again.");
-    } finally {
-      setVerifying(false);
-    }
-  }
+  };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
-      {/* backdrop */}
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      aria-modal="true"
+      role="dialog"
+    >
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/50"
+        onClick={() => onClose && onClose()}
+      />
 
-      {/* modal */}
-      <div className="relative z-[101] w-[380px] max-w-[92vw] rounded-xl bg-white p-5 shadow-xl">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-semibold">Log In or Sign Up</h3>
+      {/* Modal */}
+      <div className="relative z-10 w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        {/* Close */}
+        <button
+          onClick={() => onClose && onClose()}
+          aria-label="Close"
+          className="absolute right-3 top-3 rounded-md px-2 py-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+        >
+          ✕
+        </button>
+
+        {/* Title */}
+        <h2 className="mb-6 text-center text-2xl font-bold text-brand-600">
+          Sign in to COOVA
+        </h2>
+
+        {/* Tabs */}
+        <div className="mb-5 grid grid-cols-2 gap-2 rounded-md bg-gray-100 p-1">
           <button
-            onClick={onClose}
-            className="rounded px-2 py-1 text-gray-500 hover:text-gray-800"
-            aria-label="Close"
+            type="button"
+            onClick={() => setActiveTab("email")}
+            className={`rounded-md px-3 py-2 text-sm font-semibold ${
+              activeTab === "email"
+                ? "bg-white text-brand-600 shadow"
+                : "text-gray-600 hover:text-gray-800"
+            }`}
           >
-            ×
+            Email
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("phone")}
+            className={`rounded-md px-3 py-2 text-sm font-semibold ${
+              activeTab === "phone"
+                ? "bg-white text-brand-600 shadow"
+                : "text-gray-600 hover:text-gray-800"
+            }`}
+          >
+            Phone
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="mb-4 grid grid-cols-2 gap-1 rounded-md bg-gray-100 p-1 text-sm">
-          {TABS.map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={cn(
-                "rounded-md py-1 transition",
-                tab === t ? "bg-white shadow font-medium" : "text-gray-600"
-              )}
-            >
-              {t === "email" ? "Email" : "Phone"}
-            </button>
-          ))}
-        </div>
-
-        {/* Google */}
-        <button
-          onClick={signInWithGoogle}
-          className="mb-3 w-full rounded-md bg-black py-2 text-white hover:opacity-90"
-        >
-          Continue with Google
-        </button>
-
-        {/* Email tab */}
-        {tab === "email" && (
-          <div>
-            <label className="mb-1 block text-sm font-medium">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="w-full rounded border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-brand-500"
-            />
-            <button
-              onClick={sendMagicLink}
-              disabled={!email || sending}
-              className="mt-3 w-full rounded-md bg-brand-600 py-2 text-white hover:bg-brand-700 disabled:opacity-50"
-            >
-              {sending ? "Sending…" : "Send Magic Link"}
-            </button>
-          </div>
-        )}
-
-        {/* Phone tab */}
-        {tab === "phone" && (
-          <div>
-            <label className="mb-1 block text-sm font-medium">Phone</label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+15551234567"
-              className="w-full rounded border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-brand-500"
-            />
-            <div className="mt-3 flex gap-2">
-              <button
-                onClick={sendSmsCode}
-                disabled={!phone || sending}
-                className="flex-1 rounded-md bg-gray-900 py-2 text-white hover:opacity-90 disabled:opacity-50"
-              >
-                {sending ? "Sending…" : "Send Code"}
-              </button>
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {activeTab === "email" ? (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Email Address
+              </label>
               <input
-                type="text"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="6‑digit code"
-                className="flex-1 rounded border border-gray-300 px-3 py-2"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500"
               />
-              <button
-                onClick={verifySms}
-                disabled={!phone || !code || verifying}
-                className="rounded-md bg-brand-600 px-4 py-2 text-white hover:bg-brand-700 disabled:opacity-50"
-              >
-                {verifying ? "Verifying…" : "Verify"}
-              </button>
             </div>
-          </div>
-        )}
+          ) : (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                inputMode="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+1 555 000 1234"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                SMS sign-in requires Twilio + Supabase SMS to be configured.
+              </p>
+            </div>
+          )}
 
-        {/* message */}
-        {message ? (
-          <p className="mt-3 text-xs text-gray-600">{message}</p>
-        ) : null}
+          <button
+            type="submit"
+            className="w-full rounded-md bg-brand-500 px-4 py-2 font-semibold text-white hover:bg-brand-600"
+          >
+            Continue
+          </button>
+        </form>
 
-        <p className="mt-3 text-[11px] text-gray-500">
-          By continuing you agree to our Terms & Privacy Policy.
+        <p className="mt-4 text-center text-xs text-gray-500">
+          By continuing, you agree to our{" "}
+          <a href="/terms" className="text-brand-500 hover:text-brand-600">
+            Terms of Service
+          </a>{" "}
+          and{" "}
+          <a href="/privacy" className="text-brand-500 hover:text-brand-600">
+            Privacy Policy
+          </a>
+          .
         </p>
       </div>
     </div>

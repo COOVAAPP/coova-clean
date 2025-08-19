@@ -1,25 +1,25 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
-    "./app/**/*.{js,jsx,ts,tsx}",
-    "./components/**/*.{js,jsx,ts,tsx}",
+    "./app/**/*.{js,ts,jsx,tsx}",
+    "./components/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {
       colors: {
         brand: {
-          50:  "#eff6ff",
-          100: "#9efcff",
-          200: "#bfdbfe",
-          300: "#93c5fd",
-          400: "#60a5fa",
-          500: "#13d4d4",
-          600: "#2563eb",
-          700: "#1d4ed8",
-          800: "#1e40af",
-          900: "#1e3a8a"
-        }
-      }
+          50: "#E6FAFA",
+          100: "#CCF5F5",
+          200: "#99EBEB",
+          300: "#66E1E1",
+          400: "#33D7D7",
+          500: "#13D4D4", // your main aqua
+          600: "#0FAAAA",
+          700: "#0B7F7F",
+          800: "#075555",
+          900: "#042A2A",
+        },
+      },
     },
   },
   plugins: [],
