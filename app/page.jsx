@@ -1,9 +1,10 @@
-"use client";
-export const dynamic = "force-dynamic";
+'use client';
+
+// ✅ Force dynamic rendering and disable ISR for this page
+export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-import Link from "next/link";
-import Hero from "@/components/Hero";
+import Hero from '@/components/Hero';
 
 export default function Home() {
   return (
@@ -11,7 +12,7 @@ export default function Home() {
       {/* Hero with rotating backgrounds + search */}
       <Hero />
 
-      {/* CATEGORY CARDS */}
+      {/* Explore Categories */}
       <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
         <h2 className="mb-8 text-center text-2xl font-bold text-gray-800">
           Explore Categories
@@ -83,12 +84,12 @@ export default function Home() {
           List your pool, backyard, car, or creative venue space and start generating income today.
         </p>
         <div className="mt-6 text-center">
-          <Link
+          <a
             href="/list"
             className="inline-block rounded-full bg-white px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-gray-100"
           >
             Start Hosting
-          </Link>
+          </a>
         </div>
       </section>
     </main>

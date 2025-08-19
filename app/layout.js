@@ -1,28 +1,28 @@
-// app/layout.js
-import "./globals.css";
-import { Suspense } from "react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import './globals.css';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
+import { Suspense } from 'react';
 
 export const metadata = {
-  title: "COOVA",
-  description: "Rent luxury, share vibes.",
+  title: 'COOVA',
+  description: 'Rent Luxury, share vibes.',
 };
 
-export const viewport = { width: "device-width", initialScale: 1 };
+export const viewport = 'width=device-width, initial-scale=1';
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className="min-h-screen bg-gray-50 text-gray-900 antialiased">
-        {/* Wrap any component that uses useSearchParams in Suspense */}
-        <Suspense fallback={null}>
-          <Header />
-        </Suspense>
+        {/* Header is a Client Component; fine to render here */}
+        <Header />
 
-        <main id="app-root" className="min-h-[calc(100vh-200px)]">
-          {children}
-        </main>
+        {/* ✅ Wrap page content in Suspense to satisfy useSearchParams rule */}
+        <Suspense fallback={null}>
+          <main id="app-root" className="min-h-[calc(100vh-200px)]">
+            {children}
+          </main>
+        </Suspense>
 
         <Footer />
         <div id="modal-root" />
