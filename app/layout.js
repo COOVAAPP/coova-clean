@@ -9,29 +9,24 @@ export const metadata = {
   description: "Rent luxury, share vibes.",
 };
 
-export const viewport = {
-  width: "device-width",
-  initialScale: 1,
-};
+export const viewport = { width: "device-width", initialScale: 1 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className="min-h-screen flex flex-col bg-gray-50 text-gray-900 antialiased">
-        {/* Header */}
+      <body className="min-h-screen bg-gray-50 text-gray-900 antialiased">
+        {/* Header can be client; wrap in Suspense to satisfy Next warnings */}
         <Suspense fallback={null}>
           <Header />
         </Suspense>
 
-        {/* Main Content */}
-        <main id="app-root" className="flex-1 flex flex-col">
-          {children}
-        </main>
+        {/* Wrap the route tree (children) in Suspense */}
+        <Suspense fallback={<div className="container-page py-10">Loading…</div>}>
+          <main id="app-root">{children}</main>
+        </Suspense>
 
-        {/* Footer */}
         <Footer />
-
-        {/* Portal Target for Modals */}
+        {/* Optional portal mount point for modals */}
         <div id="modal-root" />
       </body>
     </html>

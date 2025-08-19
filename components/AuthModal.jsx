@@ -1,109 +1,117 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function AuthModal({ open, onClose }) {
-  const [mounted, setMounted] = useState(false);
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
   const [msg, setMsg] = useState("");
-  const [err, setErr] = useState("");
+  const dialogRef = useRef(null);
 
-  useEffect(() => setMounted(true), []);
-  if (!mounted || !open) return null;
+  useEffect(() => {
+    if (open) {
+      setMsg("");
+      setEmail("");
+      // lock scroll
+      document.documentElement.style.overflow = "hidden";
+    } else {
+      document.documentElement.style.overflow = "";
+    }
+    return () => {
+      document.documentElement.style.overflow = "";
+    };
+  }, [open]);
+
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === "Escape" && open) onClose?.();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
 
   async function sendMagicLink(e) {
     e.preventDefault();
-    setErr("");
+    if (!email || sending) return;
+    setSending(true);
     setMsg("");
-    if (!email.trim()) return setErr("Enter a valid email.");
-    setLoading(true);
+
     try {
+      const redirectTo = `${window.location.origin}/auth/callback`;
       const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
+        email,
         options: {
-          shouldCreateUser: true,
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: redirectTo,
         },
       });
       if (error) throw error;
-      setMsg("Check your email for the magic link.");
-    } catch (e) {
-      setErr(e.message || "Failed to send link.");
+      setMsg("Check your email for a sign-in link.");
+      // Optional: auto-close the modal after a short delay
+      setTimeout(() => onClose?.(), 800);
+    } catch (err) {
+      setMsg(err.message || "Failed to send magic link.");
     } finally {
-      setLoading(false);
+      setSending(false);
     }
   }
 
-  async function signInGoogle() {
-    setErr("");
-    setMsg("");
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
-      });
-      if (error) throw error;
-    } catch (e) {
-      setErr(e.message || "Google sign-in failed.");
-    } finally {
-      setLoading(false);
-    }
+  function onBackdrop(e) {
+    if (e.target === dialogRef.current) onClose?.();
   }
 
-  return createPortal(
-    <div className="fixed inset-0 z-[100]">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="absolute inset-0 flex items-center justify-center p-4">
-        <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-          <div className="mb-5 flex items-center justify-between">
-            <h3 className="text-xl font-semibold">Log In or Sign Up</h3>
-            <button
-              onClick={onClose}
-              className="rounded-full p-2 text-gray-500 hover:bg-gray-100"
-              aria-label="Close"
-            >
-              ✕
-            </button>
+  return (
+    <div
+      ref={dialogRef}
+      onClick={onBackdrop}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+      aria-modal="true"
+      role="dialog"
+    >
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Sign in to COOVA</h2>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="rounded-md p-1 text-gray-500 hover:bg-gray-100"
+          >
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={sendMagicLink} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium">Email</label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            />
           </div>
 
           <button
-            onClick={signInGoogle}
-            className="mb-4 w-full rounded-md bg-gray-900 py-2 text-white hover:opacity-90 disabled:opacity-60"
-            disabled={loading}
+            type="submit"
+            disabled={sending || !email}
+            className="w-full rounded-md bg-black px-4 py-2 font-semibold text-white hover:opacity-90 disabled:opacity-60"
           >
-            Continue with Google
+            {sending ? "Sending…" : "Send Magic Link"}
           </button>
+        </form>
 
-          <form onSubmit={sendMagicLink} className="space-y-3">
-            <div>
-              <label className="mb-1 block text-sm font-medium">Email</label>
-              <input
-                type="email"
-                placeholder="you@email.com"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-
-            {err && <p className="text-sm text-red-600">{err}</p>}
-            {msg && <p className="text-sm text-emerald-600">{msg}</p>}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-md bg-brand-600 py-2 font-medium text-white hover:bg-brand-700 disabled:opacity-60"
-            >
-              {loading ? "Sending…" : "Send Magic Link"}
-            </button>
-          </form>
-        </div>
+        {msg ? (
+          <p className="mt-3 text-sm text-gray-700">{msg}</p>
+        ) : (
+          <p className="mt-3 text-xs text-gray-500">
+            We’ll email you a secure sign-in link. No password needed.
+          </p>
+        )}
       </div>
-    </div>,
-    document.getElementById("modal-root")
+    </div>
   );
 }
