@@ -1,245 +1,223 @@
-// components/AuthModal.jsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function AuthModal({ open, onClose }) {
-  const router = useRouter();
-  const search = useSearchParams();
-  const redirect = search.get("redirect") || "/";
+  const [activeTab, setActiveTab] = useState<"email" | "phone">("email");
 
-  const [tab, setTab] = useState("email"); // "email" | "phone"
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState("");
-  const [err, setErr] = useState("");
-
-  // email
+  // email state
   const [email, setEmail] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sentMsg, setSentMsg] = useState("");
 
-  // phone
-  const [phone, setPhone] = useState(""); // E.164 format recommended, e.g. +12025550123
-  const [codeSent, setCodeSent] = useState(false);
-  const [otp, setOtp] = useState("");
-
-  const dialogRef = useRef(null);
-
-  // close on escape & backdrop
-  useEffect(() => {
-    function onKey(e) {
-      if (e.key === "Escape") onClose?.();
-    }
-    if (open) document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  // phone state
+  const [phone, setPhone] = useState(""); // E.164: +15551234567
+  const [code, setCode] = useState("");
+  const [smsSent, setSmsSent] = useState(false);
+  const [smsError, setSmsError] = useState("");
 
   useEffect(() => {
-    setMsg("");
-    setErr("");
-  }, [tab, open]);
-
-  async function handleEmailMagicLink(e) {
-    e.preventDefault();
-    setErr(""); setMsg(""); setBusy(true);
-    try {
-      if (!email.trim()) throw new Error("Enter your email.");
-      // Send magic link
-      const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: {
-          emailRedirectTo:
-            typeof window !== "undefined"
-              ? `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirect)}`
-              : undefined,
-        },
-      });
-      if (error) throw error;
-      setMsg("Magic link sent. Check your email.");
-    } catch (e) {
-      setErr(e.message || "Failed to send magic link.");
-    } finally {
-      setBusy(false);
+    if (!open) {
+      // reset form when closed
+      setActiveTab("email");
+      setEmail("");
+      setSending(false);
+      setSentMsg("");
+      setPhone("");
+      setCode("");
+      setSmsSent(false);
+      setSmsError("");
     }
-  }
-
-  async function handleSendSms(e) {
-    e.preventDefault();
-    setErr(""); setMsg(""); setBusy(true);
-    try {
-      const normalized = phone.trim();
-      if (!normalized) throw new Error("Enter your phone number.");
-      // Send SMS code
-      const { error } = await supabase.auth.signInWithOtp({
-        phone: normalized,
-        options: {
-          channel: "sms",
-        },
-      });
-      if (error) throw error;
-      setCodeSent(true);
-      setMsg("Code sent via SMS.");
-    } catch (e) {
-      setErr(e.message || "Failed to send SMS code.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleVerifySms(e) {
-    e.preventDefault();
-    setErr(""); setMsg(""); setBusy(true);
-    try {
-      const normalized = phone.trim();
-      if (!normalized) throw new Error("Enter your phone number.");
-      if (!otp.trim()) throw new Error("Enter the code you received.");
-
-      const { error } = await supabase.auth.verifyOtp({
-        phone: normalized,
-        token: otp.trim(),
-        type: "sms",
-      });
-      if (error) throw error;
-
-      // success → go to redirect
-      onClose?.();
-      router.replace(redirect);
-    } catch (e) {
-      setErr(e.message || "Verification failed.");
-    } finally {
-      setBusy(false);
-    }
-  }
+  }, [open]);
 
   if (!open) return null;
 
+  async function sendMagicLink(e) {
+    e.preventDefault();
+    if (!email) return;
+
+    setSending(true);
+    setSentMsg("");
+    try {
+      const redirectTo =
+        process.env.NEXT_PUBLIC_SITE_URL
+          ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
+          : `${window.location.origin}/auth/callback`;
+
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: redirectTo, shouldCreateUser: true },
+      });
+      if (error) throw error;
+      setSentMsg("Magic link sent! Check your inbox.");
+    } catch (err) {
+      setSentMsg(err.message || "Failed to send magic link.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function sendSms(e) {
+    e.preventDefault();
+    if (!phone) return;
+    setSmsError("");
+    setSending(true);
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        phone,
+        options: { shouldCreateUser: true },
+      });
+      if (error) throw error;
+      setSmsSent(true);
+    } catch (err) {
+      setSmsError(err.message || "Failed to send SMS.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function verifySms(e) {
+    e.preventDefault();
+    if (!phone || !code) return;
+    setSmsError("");
+    setSending(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        phone,
+        token: code,
+        type: "sms",
+      });
+      if (error) throw error;
+      onClose?.();
+    } catch (err) {
+      setSmsError(err.message || "Invalid code.");
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
-    <div
-      ref={dialogRef}
-      className="fixed inset-0 z-[100] flex items-center justify-center"
-      aria-modal="true"
-      role="dialog"
-    >
+    <div className="fixed inset-0 z-[100]">
       {/* backdrop */}
       <div
-        className="absolute inset-0 bg-black/60"
-        onClick={() => onClose?.()}
+        className="absolute inset-0 bg-black/50"
+        onClick={onClose}
+        aria-hidden
       />
       {/* modal */}
-      <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Sign in / Sign up</h2>
-          <button
-            onClick={() => onClose?.()}
-            className="rounded-full p-1 text-gray-500 hover:bg-gray-100"
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </div>
+      <div className="absolute inset-0 flex items-center justify-center p-4">
+        <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold">Log In or Sign Up</h3>
+            <button
+              className="rounded-md border px-2 py-1 text-sm"
+              onClick={onClose}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
 
-        {/* Tabs */}
-        <div className="mb-6 grid grid-cols-2 rounded-lg border border-gray-200 p-1">
-          <button
-            className={`rounded-md py-2 text-sm font-medium ${
-              tab === "email" ? "bg-black text-white" : "text-gray-700 hover:bg-gray-100"
-            }`}
-            onClick={() => setTab("email")}
-          >
-            Email
-          </button>
-          <button
-            className={`rounded-md py-2 text-sm font-medium ${
-              tab === "phone" ? "bg-black text-white" : "text-gray-700 hover:bg-gray-100"
-            }`}
-            onClick={() => setTab("phone")}
-          >
-            Phone
-          </button>
-        </div>
+          {/* Tabs */}
+          <div className="mb-4 grid grid-cols-2 rounded-md bg-gray-100 p-1 text-sm">
+            <button
+              className={`rounded px-3 py-2 ${
+                activeTab === "email" ? "bg-white shadow font-medium" : ""
+              }`}
+              onClick={() => setActiveTab("email")}
+            >
+              Email
+            </button>
+            <button
+              className={`rounded px-3 py-2 ${
+                activeTab === "phone" ? "bg-white shadow font-medium" : ""
+              }`}
+              onClick={() => setActiveTab("phone")}
+            >
+              Phone
+            </button>
+          </div>
 
-        {/* Messages */}
-        {msg ? <p className="mb-3 text-sm text-green-700">{msg}</p> : null}
-        {err ? <p className="mb-3 text-sm text-red-600">{err}</p> : null}
-
-        {/* EMAIL FORM */}
-        {tab === "email" && (
-          <form onSubmit={handleEmailMagicLink} className="space-y-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium">Email</label>
+          {activeTab === "email" && (
+            <form onSubmit={sendMagicLink} className="space-y-3">
+              <label className="block text-sm font-medium">Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-brand-500"
                 placeholder="you@example.com"
+                className="w-full rounded-md border px-3 py-2"
               />
-            </div>
-
-            <button
-              type="submit"
-              disabled={busy}
-              className="w-full rounded-md bg-black px-4 py-2 font-semibold text-white hover:opacity-90 disabled:opacity-60"
-            >
-              {busy ? "Sending…" : "Send Magic Link"}
-            </button>
-          </form>
-        )}
-
-        {/* PHONE FORM */}
-        {tab === "phone" && (
-          <form
-            onSubmit={codeSent ? handleVerifySms : handleSendSms}
-            className="space-y-4"
-          >
-            <div>
-              <label className="mb-1 block text-sm font-medium">Phone number</label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-brand-500"
-                placeholder="+12025550123"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Use your full number with country code (e.g. +1…).
-              </p>
-            </div>
-
-            {codeSent && (
-              <div>
-                <label className="mb-1 block text-sm font-medium">SMS Code</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-brand-500"
-                  placeholder="6-digit code"
-                />
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={busy}
-              className="w-full rounded-md bg-black px-4 py-2 font-semibold text-white hover:opacity-90 disabled:opacity-60"
-            >
-              {busy ? (codeSent ? "Verifying…" : "Sending…") : (codeSent ? "Verify Code" : "Send Code")}
-            </button>
-
-            {codeSent && (
               <button
-                type="button"
-                onClick={handleSendSms}
-                disabled={busy}
-                className="w-full rounded-md border border-gray-300 px-4 py-2 font-semibold hover:bg-gray-50 disabled:opacity-60"
+                type="submit"
+                disabled={sending || !email}
+                className="w-full rounded-md bg-[#13D4D4] py-2 font-semibold text-white hover:opacity-90 disabled:opacity-60"
               >
-                Resend Code
+                {sending ? "Sending…" : "Send Magic Link"}
               </button>
-            )}
-          </form>
-        )}
+              {!!sentMsg && (
+                <p className="text-xs text-gray-600">{sentMsg}</p>
+              )}
+            </form>
+          )}
+
+          {activeTab === "phone" && (
+            <div className="space-y-3">
+              {!smsSent ? (
+                <form onSubmit={sendSms} className="space-y-3">
+                  <label className="block text-sm font-medium">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+15551234567"
+                    className="w-full rounded-md border px-3 py-2"
+                  />
+                  <button
+                    type="submit"
+                    disabled={sending || !phone}
+                    className="w-full rounded-md bg-[#13D4D4] py-2 font-semibold text-white hover:opacity-90 disabled:opacity-60"
+                  >
+                    {sending ? "Sending…" : "Send Code"}
+                  </button>
+                  {!!smsError && (
+                    <p className="text-xs text-red-600">{smsError}</p>
+                  )}
+                </form>
+              ) : (
+                <form onSubmit={verifySms} className="space-y-3">
+                  <label className="block text-sm font-medium">
+                    Enter Code
+                  </label>
+                  <input
+                    type="text"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    placeholder="123456"
+                    className="w-full rounded-md border px-3 py-2"
+                  />
+                  <button
+                    type="submit"
+                    disabled={sending || !code}
+                    className="w-full rounded-md bg-[#13D4D4] py-2 font-semibold text-white hover:opacity-90 disabled:opacity-60"
+                  >
+                    Verify & Continue
+                  </button>
+                  {!!smsError && (
+                    <p className="text-xs text-red-600">{smsError}</p>
+                  )}
+                </form>
+              )}
+            </div>
+          )}
+
+          <p className="mt-4 text-center text-[11px] text-gray-500">
+            By continuing you agree to our Terms & Privacy Policy.
+          </p>
+        </div>
       </div>
     </div>
   );

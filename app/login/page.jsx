@@ -1,16 +1,14 @@
-// app/login/page.jsx
-import { Suspense } from "react";
-import LoginClient from "./LoginClient";
+"use client";
 
-export const dynamic = "force-dynamic"; // avoid static pre-render issues
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import AuthModal from "@/components/AuthModal";
 
-export default function Page({ searchParams }) {
-  const redirect =
-    typeof searchParams?.redirect === "string" ? searchParams.redirect : "/list";
+export default function LoginPage() {
+  const router = useRouter();
+  const [open, setOpen] = useState(true);
 
-  return (
-    <Suspense fallback={<main style={{ padding: 24 }}>Loading…</main>}>
-      <LoginClient redirect={redirect} />
-    </Suspense>
+  retrun (
+    <AuthModal open={open} onClose={() => router.push("/")} />
   );
 }

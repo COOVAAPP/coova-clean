@@ -1,4 +1,3 @@
-// components/Header.jsx
 "use client";
 
 import { useState } from "react";
@@ -11,16 +10,11 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-black/10 bg-[#9EFCFF]/90 backdrop-blur">
       <div className="container-page h-16 flex items-center justify-between">
-        {/* Brand */}
         <Link href="/" className="font-semibold tracking-wide">COOVA</Link>
 
-        {/* Desktop nav */}
         <nav className="hidden sm:flex items-center gap-6 text-sm">
           <Link href="/browse" className="hover:opacity-80">Browse</Link>
-          <button
-            onClick={() => setOpen(true)}
-            className="hover:opacity-80"
-          >
+          <button onClick={() => setOpen(true)} className="hover:opacity-80">
             Log In
           </button>
           <Link
@@ -31,7 +25,6 @@ export default function Header() {
           </Link>
         </nav>
 
-        {/* Mobile: just a Log In button for now */}
         <button
           className="sm:hidden rounded-md border border-black/10 px-3 py-1.5 text-sm"
           onClick={() => setOpen(true)}
@@ -40,7 +33,6 @@ export default function Header() {
         </button>
       </div>
 
-      {/* Auth Modal */}
       <AuthModal open={open} onClose={() => setOpen(false)} />
     </header>
   );
