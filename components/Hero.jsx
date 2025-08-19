@@ -30,7 +30,7 @@ export default function Hero() {
 
       <div className="relative z-10 container-page py-20 sm:py-28 text-white">
         <h1 className="text-4xl sm:text-5xl font-bold">Rent Luxury. Share Good Vibes.</h1>
-        <p className="mt-3 max-w-2xl font-bold text-cyan-500">
+        <p className="mt-3 max-w-2xl font-bold text-white/90">
           Spaces, cars, and venues—book by the hour. Host your event or find your next creative location.
         </p>
 
