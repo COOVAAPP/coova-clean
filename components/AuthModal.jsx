@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabaseClient";
 
-export default function AuthModal({ onClose }) {
+export default function AuthModal({ onClose, onAuthed }) {
   const [mounted, setMounted] = useState(false);
   const [tab, setTab] = useState("email"); // 'email' | 'phone'
   const [loading, setLoading] = useState(false);
@@ -13,15 +13,13 @@ export default function AuthModal({ onClose }) {
   const [email, setEmail] = useState("");
 
   // Phone
-  const [phone, setPhone] = useState(""); // E.164 e.g. +15551234567
+  const [phone, setPhone] = useState(""); // +15551234567
   const [code, setCode] = useState("");
   const [phoneStep, setPhoneStep] = useState("request"); // 'request' | 'verify'
 
   const [message, setMessage] = useState("");
 
   useEffect(() => setMounted(true), []);
-
-  // ----- Actions -----
 
   async function signInWithGoogle() {
     setLoading(true);
@@ -33,9 +31,11 @@ export default function AuthModal({ onClose }) {
           redirectTo: typeof window !== "undefined"
             ? `${window.location.origin}/`
             : undefined,
-        },
-      });
+      }});
       if (error) throw error;
+
+      // For OAuth, Supabase redirects the page; we also defensively call onAuthed.
+      onAuthed?.();
     } catch (e) {
       setMessage(e.message || "Google sign-in failed.");
     } finally {
@@ -57,6 +57,7 @@ export default function AuthModal({ onClose }) {
       });
       if (error) throw error;
       setMessage("Check your inbox for the magic link.");
+      // We cannot confirm success synchronously for email; user must click the link.
     } catch (e) {
       setMessage(e.message || "Failed to send magic link.");
     } finally {
@@ -93,8 +94,10 @@ export default function AuthModal({ onClose }) {
         token: code.trim(),
       });
       if (error) throw error;
+
       setMessage("Success! You are signed in.");
       onClose?.();
+      onAuthed?.(); // e.g., redirect to /list
     } catch (e) {
       setMessage(e.message || "Invalid or expired code.");
     } finally {
@@ -102,16 +105,9 @@ export default function AuthModal({ onClose }) {
     }
   }
 
-  // ----- UI -----
-
   const modal = (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4"
-      role="dialog"
-      aria-modal="true"
-    >
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4" role="dialog" aria-modal="true">
       <div className="relative w-full max-w-md rounded-xl bg-white shadow-xl">
-        {/* Close */}
         <button
           onClick={onClose}
           className="absolute right-3 top-3 rounded-md p-2 text-gray-600 hover:bg-gray-100"
@@ -123,7 +119,6 @@ export default function AuthModal({ onClose }) {
         <div className="p-6">
           <h2 className="text-lg font-semibold mb-4 text-gray-900">Log In or Sign Up</h2>
 
-          {/* Google */}
           <button
             onClick={signInWithGoogle}
             disabled={loading}
@@ -132,27 +127,21 @@ export default function AuthModal({ onClose }) {
             Continue with Google
           </button>
 
-          {/* Tabs */}
           <div className="mb-4 flex gap-2">
             <button
               onClick={() => setTab("email")}
-              className={`rounded-md px-3 py-1 text-sm ${
-                tab === "email" ? "bg-[#13D4D4] text-black" : "bg-gray-100 text-gray-700"
-              }`}
+              className={`rounded-md px-3 py-1 text-sm ${tab === "email" ? "bg-[#13D4D4] text-black" : "bg-gray-100 text-gray-700"}`}
             >
               Email
             </button>
             <button
               onClick={() => setTab("phone")}
-              className={`rounded-md px-3 py-1 text-sm ${
-                tab === "phone" ? "bg-[#13D4D4] text-black" : "bg-gray-100 text-gray-700"
-              }`}
+              className={`rounded-md px-3 py-1 text-sm ${tab === "phone" ? "bg-[#13D4D4] text-black" : "bg-gray-100 text-gray-700"}`}
             >
               Phone
             </button>
           </div>
 
-          {/* Email form */}
           {tab === "email" && (
             <form onSubmit={sendEmailMagicLink} className="space-y-3">
               <label className="block text-sm font-medium text-gray-700">Email</label>
@@ -174,7 +163,6 @@ export default function AuthModal({ onClose }) {
             </form>
           )}
 
-          {/* Phone form */}
           {tab === "phone" && (
             <>
               {phoneStep === "request" && (
@@ -200,9 +188,7 @@ export default function AuthModal({ onClose }) {
 
               {phoneStep === "verify" && (
                 <form onSubmit={verifySmsCode} className="space-y-3">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Enter the 6‑digit code
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700">Enter the 6‑digit code</label>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -235,7 +221,6 @@ export default function AuthModal({ onClose }) {
     </div>
   );
 
-  // Render into #modal-root if present, otherwise directly (SSR-safe)
   if (!mounted) return null;
   const host = document.getElementById("modal-root");
   return host ? createPortal(modal, host) : modal;
