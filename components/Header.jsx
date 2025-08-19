@@ -13,7 +13,7 @@ export default function Header() {
       <header className="sticky top-0 z-40 border-b border-cyan-100 bg-[#9EFCFF]/95 backdrop-blur supports-[backdrop-filter]:bg-[#9EFCFF]/80">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
           {/* Left: Logo */}
-          <Link href="/" className="shrink-0 text-2xl font-extrabold tracking-tight text-brand-700">
+          <Link href="/" className="shrink-0 text-4xl font-extrabold tracking-tight text-white">
             COOVA
           </Link>
 
@@ -34,7 +34,7 @@ export default function Header() {
           <div className="ml-auto hidden md:flex">
             <button
               onClick={() => setAuthOpen(true)}
-              className="rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
+              className="rounded-full bg-brand-500 px-4 py-2 text-sm font-bold text-white hover:bg-brand-600"
             >
               Log in / Sign up
             </button>
@@ -63,7 +63,7 @@ export default function Header() {
               <Link
                 href="/list"
                 onClick={() => setMobileOpen(false)}
-                className="rounded-full bg-white px-4 py-2 font-semibold text-brand-600 shadow"
+                className="rounded-full bg-white px-4 py-2 font-bold text-brand-600 shadow"
               >
                 List your space
               </Link>
@@ -72,7 +72,7 @@ export default function Header() {
                   setMobileOpen(false);
                   setAuthOpen(true);
                 }}
-                className="rounded-full bg-brand-500 px-4 py-2 font-semibold text-white"
+                className="rounded-full bg-brand-500 px-4 py-2 font-bold text-white"
               >
                 Log in / Sign up
               </button>
