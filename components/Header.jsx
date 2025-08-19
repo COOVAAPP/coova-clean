@@ -33,7 +33,7 @@ export default function Header() {
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden sm:flex items-center gap-6 text-sm">
+        <nav className="hidden sm:flex items-center font-bold gap-6 text-sm">
           <Link href="/browse" className="hover:opacity-80">
             Browse
           </Link>
@@ -52,7 +52,7 @@ export default function Header() {
               </Link>
               <Link
                 href="/list"
-                className="rounded-full bg-black text-white px-4 py-2 text-sm hover:opacity-90"
+                className="rounded-full bg-black font-bold text-white px-4 py-2 text-sm hover:opacity-90"
               >
                 List Your Space
               </Link>
