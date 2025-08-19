@@ -1,19 +1,31 @@
-// app/login/page.jsx
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
+import NextDynamic from "next/dynamic"; // <-- rename to avoid collision
 
-// Load modal on the client only
-const AuthModal = dynamic(() => import("@/components/AuthModal"), { ssr: false });
+// Load AuthModal only on the client
+const AuthModal = NextDynamic(() => import("@/components/AuthModal"), {
+  ssr: false,
+});
 
-// Force dynamic at the route level, but DO NOT export `revalidate` here
+// Make this route always dynamic and avoid pre-render caching
 export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store"; // avoid any pre-render cache
+export const fetchCache = "force-no-store"; // (or: export const revalidate = 0)
 
 export default function LoginPage() {
   const router = useRouter();
-  const [open] = useState(true);
-  return <AuthModal open={open} onClose={() => router.push("/")} />;
+  const [open, setOpen] = useState(true);
+
+  return (
+    <AuthModal
+      open={open}
+      onClose={() => {
+        // close then navigate back to home
+        // (avoids a loop if the modal unmounts fast)
+        setOpen(false);
+        router.push("/");
+      }}
+    />
+  );
 }
