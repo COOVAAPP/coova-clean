@@ -1,115 +1,83 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function AuthModal({ open, onClose }) {
   const [email, setEmail] = useState("");
-  const [sending, setSending] = useState(false);
-  const [msg, setMsg] = useState("");
-  const dialogRef = useRef(null);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [redirecting, setRedirecting] = useState(false);
 
-  useEffect(() => {
-    if (open) {
-      setMsg("");
-      setEmail("");
-      // lock scroll
-      document.documentElement.style.overflow = "hidden";
+  async function handleLogin(e) {
+    e.preventDefault();
+    setLoading(true);
+    setMessage("");
+
+    const { error } = await supabase.auth.signInWithOtp({ email });
+    if (error) {
+      setMessage(error.message);
     } else {
-      document.documentElement.style.overflow = "";
+      setMessage("Check your email for the login link.");
     }
-    return () => {
-      document.documentElement.style.overflow = "";
-    };
-  }, [open]);
+    setLoading(false);
+  }
 
+  // Handle redirect feedback
   useEffect(() => {
-    function onKey(e) {
-      if (e.key === "Escape" && open) onClose?.();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+    const sub = supabase.auth.onAuthStateChange((_evt, sess) => {
+      if (sess) {
+        const pendingList = localStorage.getItem("redirectToList");
+        setRedirecting(true);
+
+        setMessage(
+          pendingList ? "Redirecting to list…" : "Redirecting to homepage…"
+        );
+      }
+    });
+
+    return () => sub.data.subscription.unsubscribe();
+  }, []);
 
   if (!open) return null;
 
-  async function sendMagicLink(e) {
-    e.preventDefault();
-    if (!email || sending) return;
-    setSending(true);
-    setMsg("");
-
-    try {
-      const redirectTo = `${window.location.origin}/auth/callback`;
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: redirectTo,
-        },
-      });
-      if (error) throw error;
-      setMsg("Check your email for a sign-in link.");
-      // Optional: auto-close the modal after a short delay
-      setTimeout(() => onClose?.(), 800);
-    } catch (err) {
-      setMsg(err.message || "Failed to send magic link.");
-    } finally {
-      setSending(false);
-    }
-  }
-
-  function onBackdrop(e) {
-    if (e.target === dialogRef.current) onClose?.();
-  }
-
   return (
-    <div
-      ref={dialogRef}
-      onClick={onBackdrop}
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
-      aria-modal="true"
-      role="dialog"
-    >
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Sign in to COOVA</h2>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="rounded-md p-1 text-gray-500 hover:bg-gray-100"
-          >
-            ✕
-          </button>
-        </div>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 relative">
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 text-gray-400 hover:text-black"
+        >
+          ✕
+        </button>
 
-        <form onSubmit={sendMagicLink} className="space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium">Email</label>
+        <h2 className="text-xl font-semibold mb-4">Sign in to COOVA</h2>
+
+        {redirecting ? (
+          <p className="text-center text-green-600 font-medium">{message}</p>
+        ) : (
+          <form onSubmit={handleLogin} className="space-y-4">
             <input
               type="email"
               required
+              placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+              className="w-full border rounded-md px-3 py-2"
             />
-          </div>
 
-          <button
-            type="submit"
-            disabled={sending || !email}
-            className="w-full rounded-md bg-black px-4 py-2 font-semibold text-white hover:opacity-90 disabled:opacity-60"
-          >
-            {sending ? "Sending…" : "Send Magic Link"}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-black text-white py-2 rounded-md hover:opacity-90"
+            >
+              {loading ? "Sending…" : "Send Magic Link"}
+            </button>
+          </form>
+        )}
 
-        {msg ? (
-          <p className="mt-3 text-sm text-gray-700">{msg}</p>
-        ) : (
-          <p className="mt-3 text-xs text-gray-500">
-            We’ll email you a secure sign-in link. No password needed.
-          </p>
+        {message && !redirecting && (
+          <p className="mt-3 text-sm text-center text-gray-600">{message}</p>
         )}
       </div>
     </div>

@@ -11,141 +11,178 @@ export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const [openAuth, setOpenAuth] = useState(false);
-  const [session, setSession] = useState(null);
-  const [signingOut, setSigningOut] = useState(false);
+  // auth + ui state
+  const [user, setUser] = useState(null);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authIntent, setAuthIntent] = useState("default"); // "default" | "list"
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Load session and keep in sync
+  // load session on mount, and subscribe to changes
   useEffect(() => {
-    let mounted = true;
+    let active = true;
 
     (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!mounted) return;
-      setSession(data.session ?? null);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!active) return;
+      setUser(session?.user ?? null);
     })();
 
-    const sub = supabase.auth.onAuthStateChange((_evt, sess) => {
-      setSession(sess ?? null);
-      // If the modal is open and we now have a session, close and return home
-      if (sess && openAuth) {
-        setOpenAuth(false);
-        router.push("/");
-      }
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
     });
 
     return () => {
-      mounted = false;
-      sub.data.subscription.unsubscribe();
+      active = false;
+      listener.subscription?.unsubscribe();
     };
-  }, [openAuth, router]);
+  }, []);
 
+  // sign out
   async function handleSignOut() {
-    setSigningOut(true);
-    try {
-      await supabase.auth.signOut();
-      router.replace("/");
-    } finally {
-      setSigningOut(false);
-    }
+    await supabase.auth.signOut();
+    // if you want a hard refresh to ensure UI resets:
+    router.refresh();
   }
 
-  // Require auth to list a space
-  function handleListClick() {
-    if (session) {
-      router.push("/list");
-    } else {
-      setOpenAuth(true); // open auth modal instead of navigating
+  // click “List Your Space”
+  async function handleListClick() {
+    if (!user) {
+      setAuthIntent("list");
+      setAuthOpen(true);
+      return;
     }
+    router.push("/list");
   }
+
+  // click “Sign in”
+  function handleSignInClick() {
+    setAuthIntent("default");
+    setAuthOpen(true);
+  }
+
+  // close modal
+  function closeAuth() {
+    setAuthOpen(false);
+  }
+
+  // simple active link styles
+  const navLink = (href) =>
+    `px-3 py-2 rounded-md text-sm font-medium ${
+      pathname === href ? "bg-black/10 text-black" : "text-gray-800 hover:bg-black/10"
+    }`;
 
   return (
     <>
-      <header
-        className="sticky top-0 z-40 border-b border-black/10 bg-[#9EFCCF]/90 backdrop-blur"
-        role="banner"
-      >
-        <div className="container-page h-16 flex items-center justify-between">
-          {/* Brand */}
-          <Link
-            href="/"
-            className="text-2xl font-extrabold tracking-wide text-[#0b5]"
-            aria-label="COOVA Home"
-          >
+      <header className="sticky top-0 z-40 w-full border-b border-gray-200 bg-[#9EFCFF]/80 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
+          {/* Logo */}
+          <Link href="/" className="font-extrabold text-xl tracking-tight">
             COOVA
           </Link>
 
-          {/* Desktop Nav */}
-          <nav className="hidden sm:flex items-center gap-6 text-sm">
-            <Link href="/browse" className="hover:opacity-80">
+          {/* Desktop nav */}
+          <nav className="ml-auto hidden items-center gap-2 md:flex">
+            <Link href="/browse" className={navLink("/browse")}>
               Browse
             </Link>
 
-            {!session ? (
-              <button
-                onClick={() => setOpenAuth(true)}
-                className="hover:opacity-80"
-                aria-haspopup="dialog"
-                aria-controls="auth-modal"
-              >
-                Log in
-              </button>
-            ) : (
-              <button
-                onClick={handleSignOut}
-                disabled={signingOut}
-                className="hover:opacity-80"
-              >
-                {signingOut ? "Signing out…" : "Sign out"}
-              </button>
-            )}
-
-            {/* Require login for List Your Space */}
+            {/* List your space (requires auth) */}
             <button
               onClick={handleListClick}
-              className="rounded-full bg-black text-white px-4 py-2 text-sm hover:opacity-90"
+              className="px-3 py-2 rounded-full text-sm font-semibold bg-black text-white hover:opacity-90"
             >
               List Your Space
             </button>
-          </nav>
 
-          {/* Mobile actions */}
-          <div className="sm:hidden flex items-center gap-2">
-            {!session ? (
-              <button
-                onClick={() => setOpenAuth(true)}
-                className="rounded-md border border-black/10 px-3 py-1 text-sm"
-                aria-haspopup="dialog"
-                aria-controls="auth-modal"
-              >
-                Log in
-              </button>
+            {/* Auth buttons */}
+            {user ? (
+              <>
+                <span className="px-2 text-sm text-gray-700 hidden sm:inline">
+                  {user.email ?? "Signed in"}
+                </span>
+                <button
+                  onClick={handleSignOut}
+                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-800 hover:bg-black/10"
+                >
+                  Sign out
+                </button>
+              </>
             ) : (
               <button
-                onClick={handleSignOut}
-                disabled={signingOut}
-                className="rounded-md border border-black/10 px-3 py-1 text-sm"
+                onClick={handleSignInClick}
+                className="px-3 py-2 rounded-md text-sm font-medium text-gray-800 hover:bg-black/10"
               >
-                {signingOut ? "…" : "Sign out"}
+                Sign in
               </button>
             )}
+          </nav>
 
-            {/* Require login for List on mobile too */}
-            <button
-              onClick={handleListClick}
-              className="rounded-full bg-black text-white px-3 py-1 text-sm"
-            >
-              List
-            </button>
-          </div>
+          {/* Mobile: menu button */}
+          <button
+            className="ml-auto inline-flex items-center justify-center rounded-md border border-gray-400 p-2 text-gray-800 md:hidden"
+            aria-label="Open menu"
+            onClick={() => setMobileOpen((v) => !v)}
+          >
+            {/* simple burger icon */}
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
         </div>
+
+        {/* Mobile sheet */}
+        {mobileOpen && (
+          <div className="border-t border-gray-200 bg-white md:hidden">
+            <div className="px-4 py-3">
+              <Link
+                href="/browse"
+                className="block rounded-md px-3 py-2 text-base font-medium text-gray-800 hover:bg-black/10"
+                onClick={() => setMobileOpen(false)}
+              >
+                Browse
+              </Link>
+
+              <button
+                onClick={() => {
+                  setMobileOpen(false);
+                  handleListClick();
+                }}
+                className="mt-1 block w-full rounded-full bg-black px-3 py-2 text-left text-base font-semibold text-white hover:opacity-90"
+              >
+                List Your Space
+              </button>
+
+              {user ? (
+                <button
+                  onClick={() => {
+                    setMobileOpen(false);
+                    handleSignOut();
+                  }}
+                  className="mt-1 block w-full rounded-md px-3 py-2 text-left text-base font-medium text-gray-800 hover:bg-black/10"
+                >
+                  Sign out
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    setMobileOpen(false);
+                    handleSignInClick();
+                  }}
+                  className="mt-1 block w-full rounded-md px-3 py-2 text-left text-base font-medium text-gray-800 hover:bg-black/10"
+                >
+                  Sign in
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </header>
 
-      {/* Auth Modal */}
+      {/* Auth modal */}
       <AuthModal
-        open={openAuth}
-        onClose={() => setOpenAuth(false)}
-        aria-label="auth-modal"
+        open={authOpen}
+        onClose={closeAuth}
+        intent={authIntent} // "default" or "list" -> AuthModal uses this to redirect after login
       />
     </>
   );
