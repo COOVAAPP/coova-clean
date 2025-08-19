@@ -48,7 +48,7 @@ export default function Header() {
           ) : (
             <>
               <Link href="/login" className="hover:opacity-80">
-                Log in or Sign Up
+                Login\Sign Up
               </Link>
               <Link
                 href="/list"
