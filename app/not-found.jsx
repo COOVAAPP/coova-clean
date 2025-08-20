@@ -1,22 +1,28 @@
 // app/not-found.jsx
-
-import Link from "next/link";
-
 export default function NotFound() {
   return (
-    <main className="min-h-[60vh] grid place-items-center p-12">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold mb-3">404 — Page Not Found</h1>
-        <p className="text-gray-500 mb-6">
-          Sorry, the page you’re looking for doesn’t exist.
-        </p>
-        <Link
-          href="/"
-          className="inline-block rounded bg-black text-white px-4 py-2 hover:opacity-90"
+    <div
+      style={{
+        minHeight: "60vh",
+        display: "grid",
+        placeItems: "center",
+        padding: "3rem",
+      }}
+    >
+      <div style={{ textAlign: "center" }}>
+        <h1
+          style={{
+            fontSize: "2rem",
+            fontWeight: 700,
+            marginBottom: "0.75rem",
+          }}
         >
-          Go back home
-        </Link>
+          Page Not Found
+        </h1>
+        <p style={{ color: "#6b7280" }}>
+          Sorry, the page you are looking for doesn’t exist.
+        </p>
       </div>
-    </main>
+    </div>
   );
 }
