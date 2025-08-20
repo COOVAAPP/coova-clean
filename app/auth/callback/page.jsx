@@ -1,54 +1,62 @@
-'use client';
+"use client";
 
-/** Make this route always run on the client and never be cached */
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-export const fetchCache = 'force-no-store';
+/**
+ * AuthCallbackPage
+ * Handles Supabase PKCE exchange on the client and redirects home.
+ * - No SSR/ISR. No pre-render. No cache.
+ */
 
-import { useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { Suspense, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import supabase from "@/lib/supabaseClient";
 
-/** The inner component that uses useSearchParams must be wrapped in Suspense */
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
+/** The inner component must be wrapped in <Suspense> because it uses useSearchParams */
 function CallbackInner() {
   const router = useRouter();
   const params = useSearchParams();
 
   useEffect(() => {
-    const code = params.get('code');
+    const code = params.get("code");
 
-    // If we don't have a code, just go home
+    // No code? Go home.
     if (!code) {
-      router.replace('/');
+      router.replace("/");
       return;
     }
 
     (async () => {
-      // Exchange the PKCE code for a session
-      // supabase-js v2 signature:
-      const { error } = await supabase.auth.exchangeCodeForSession({ code });
-
-      // If anything goes wrong, we still send the user to the homepage
-      if (error) {
-        console.error('[auth/callback] exchange error:', error);
+      try {
+        // Supabase JS v2 PKCE exchange
+        const { error } = await supabase.auth.exchangeCodeForSession({ code });
+        if (error) {
+          console.error("[/auth/callback] exchange error:", error);
+        }
+      } catch (err) {
+        console.error("[/auth/callback] unexpected error:", err);
+      } finally {
+        // Always clean up the URL and land on home
+        router.replace("/");
       }
-
-      // Replace, so the callback URL doesn't stay in history
-      router.replace('/');
     })();
-  }, [params, router]);
+    // we only want this to run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  return (
-    <div className="min-h-[60vh] flex items-center justify-center text-gray-700">
-      Finishing sign-in…
-    </div>
-  );
+  return null; // nothing to render, we immediately redirect
 }
 
 export default function AuthCallbackPage() {
   return (
-    <Suspense fallback={<div className="min-h-[60vh] flex items-center justify-center">Loading…</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-[60vh] grid place-items-center text-gray-600">
+          Finishing sign-in…
+        </div>
+      }
+    >
       <CallbackInner />
     </Suspense>
   );
