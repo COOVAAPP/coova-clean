@@ -1,40 +1,33 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient'; // or '../lib/supabaseClient' if you don't use @ alias
+import { useState } from 'react';
+import { supabase } from '@/lib/supabaseClient'; // or '../lib/supabaseClient'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
-  const [status, setStatus] = useState('');
+  const [msg, setMsg] = useState('');
 
-  async function handleMagicLink(e) {
+  const onSubmit = async (e) => {
     e.preventDefault();
-    setStatus('Sending…');
+    setMsg('Sending…');
     const { error } = await supabase.auth.signInWithOtp({ email });
-    setStatus(error ? `Error: ${error.message}` : 'Check your email for the link.');
-  }
-
-  useEffect(() => {
-    // optional: handle session or redirect
-    supabase.auth.getSession().then(({ data }) => {
-      // console.log(data.session)
-    });
-  }, []);
+    setMsg(error ? `Error: ${error.message}` : 'Check your email for the link.');
+  };
 
   return (
     <main style={{ padding: 24 }}>
       <h1>Login</h1>
-      <form onSubmit={handleMagicLink}>
+      <form onSubmit={onSubmit}>
         <input
           type="email"
-          placeholder="you@example.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@example.com"
           required
         />
         <button type="submit">Send magic link</button>
       </form>
-      <p>{status}</p>
+      <p>{msg}</p>
     </main>
   );
 }
