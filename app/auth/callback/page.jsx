@@ -1,55 +1,29 @@
 // app/auth/callback/page.jsx
-'use client';
+export const dynamic = "force-dynamic";
 
-// Run only on the client and never cache this route
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
+import { redirect } from "next/navigation";
+import { supabaseServer } from "@/lib/supabaseServer";
 
-import { useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
-import supabase from '@/lib/supabaseClient';
+/**
+ * Server-side auth callback handler.
+ * Exchanges the PKCE `code` for a session and then redirects.
+ */
+export default async function AuthCallbackPage({ searchParams }) {
+  const code = searchParams?.code || null;
+  const next = searchParams?.next || "/";
 
-function CallbackInner() {
-  const router = useRouter();
-  const params = useSearchParams();
+  // No code? Go home.
+  if (!code) redirect(next);
 
-  useEffect(() => {
-    const code = params.get('code');
+  const supabase = supabaseServer();
 
-    // No code? Go home.
-    if (!code) {
-      router.replace('/');
-      return;
-    }
+  // Exchange code for session (server-side; cookies are handled by supabaseServer)
+  const { error } = await supabase.auth.exchangeCodeForSession({ code });
 
-    (async () => {
-      const { error } = await supabase.auth.exchangeCodeForSession({ code });
-      if (error) {
-        console.error('[auth/callback] exchange error:', error);
-      }
-      // Always return to home after the exchange
-      router.replace('/');
-    })();
-  }, [params, router]);
+  // Optional logging; always redirect away from callback
+  if (error) {
+    console.error("[auth/callback] exchange error:", error);
+  }
 
-  return (
-    <div className="min-h-[60vh] flex items-center justify-center text-gray-600">
-      Finishing sign-in…
-    </div>
-  );
-}
-
-export default function AuthCallbackPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-[60vh] flex items-center justify-center text-gray-600">
-          Finishing sign-in…
-        </div>
-      }
-    >
-      <CallbackInner />
-    </Suspense>
-  );
+  redirect(next);
 }
