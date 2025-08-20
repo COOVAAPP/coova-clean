@@ -1,50 +1,48 @@
+// app/dashboard/page.jsx
 "use client";
 
-export const dynamic = "force-dynamic";     // never prerender
-export const fetchCache = "force-no-store"; // disable fetch cache
-export const revalidate = 0;                // no ISR
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { supabase } from "@/lib/supabaseClient";
+import supabase from "@/lib/supabaseClient";
 
 export default function DashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState(null);
-  const [listings, setListings] = useState([]);
 
   useEffect(() => {
-    let active = true;
+    let mounted = true;
 
     (async () => {
-      // 1) Ensure user is signed in
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
 
-      if (!active) return;
-
-      if (!session) {
-        router.replace("/login?redirect=/dashboard");
+      if (!data?.session) {
+        // Not logged in -> send to login with redirect back to /dashboard
+        router.replace(`/login?redirect=${encodeURIComponent("/dashboard")}`);
         return;
       }
 
-      setSession(session);
-
-      // 2) Load user-owned listings
-      const { data, error } = await supabase
-        .from("listings")
-        .select("*")
-        .eq("owner_id", session.user.id)
-        .order("created_at", { ascending: false });
-
-      if (!active) return;
-
-      if (!error) setListings(data || []);
+      setSession(data.session);
       setLoading(false);
     })();
 
-    return () => { active = false; };
+    const sub = supabase.auth.onAuthStateChange((_event, sess) => {
+      if (!sess) {
+        router.replace(`/login?redirect=${encodeURIComponent("/dashboard")}`);
+      } else {
+        setSession(sess);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      sub?.data?.subscription?.unsubscribe?.();
+    };
   }, [router]);
 
   if (loading) {
@@ -56,35 +54,23 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="container-page py-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Your Dashboard</h1>
-        <Link href="/list/create" className="btn primary">Create Listing</Link>
-      </div>
+    <main className="container-page py-10">
+      <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
+      <p className="text-gray-600 mb-6">
+        Welcome{session?.user?.email ? `, ${session.user.email}` : ""}!
+      </p>
 
-      {listings.length === 0 ? (
-        <div className="rounded-md border p-6 text-gray-600">
-          <p className="mb-3">You don’t have any listings yet.</p>
-          <Link href="/list/create" className="btn">Create your first listing</Link>
-        </div>
-      ) : (
-        <ul className="divide-y rounded-md border">
-          {listings.map((l) => (
-            <li key={l.id} className="flex items-center justify-between p-4">
-              <div>
-                <div className="font-semibold">{l.title || "Untitled listing"}</div>
-                <div className="text-sm text-gray-500">
-                  {typeof l.price === "number" ? `$${l.price}/hr` : "No price set"}
-                </div>
-              </div>
-              <div className="space-x-2">
-                <Link href={`/list/${l.id}/edit`} className="btn sm">Edit</Link>
-                <Link href={`/list/${l.id}`} className="btn sm">View</Link>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <section className="rounded-lg border p-4">
+          <h2 className="font-semibold mb-2">Your Listings</h2>
+          <p className="text-sm text-gray-500">Coming soon…</p>
+        </section>
+
+        <section className="rounded-lg border p-4">
+          <h2 className="font-semibold mb-2">Bookings</h2>
+          <p className="text-sm text-gray-500">Coming soon…</p>
+        </section>
+      </div>
     </main>
   );
 }
