@@ -6,12 +6,16 @@
  * - No SSR/ISR. No pre-render. No cache.
  */
 
-import { Suspense, useEffect } from "react";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
+
+import { useEffect } from 'react';
 import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from 'react';
 import supabase from "@/lib/supabaseClient";
 
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
+
 
 /** The inner component must be wrapped in <Suspense> because it uses useSearchParams */
 function CallbackInner() {
