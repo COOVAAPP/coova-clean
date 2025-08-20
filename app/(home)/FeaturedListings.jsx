@@ -1,5 +1,5 @@
 // app/(home)/FeaturedListings.jsx
-import supabase from "@/lib/supabaseServer";
+import { createServerSupabase } from "@/lib/supabaseServer";
 import ListingCard from "@/components/ListingCard";
 
 export const revalidate = 30; // ISR: refresh every 30s
