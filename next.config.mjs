@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    optimizeCss: false, // disables lightningcss so the native .node isn’t required
+    optimizeCss: false, // disables lightningcss and falls back to PostCSS
   },
 };
 
