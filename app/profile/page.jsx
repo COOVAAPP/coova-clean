@@ -1,7 +1,9 @@
 // app/profile/page.jsx
 "use client";
 
+// Do NOT pre-render or cache this page
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
 import { useEffect, useState } from "react";
@@ -10,82 +12,99 @@ import supabase from "@/lib/supabaseClient";
 
 export default function ProfilePage() {
   const router = useRouter();
+
   const [loading, setLoading] = useState(true);
-  const [session, setSession] = useState(null);
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
 
   useEffect(() => {
     let mounted = true;
 
     (async () => {
-      const { data } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
+
       if (!mounted) return;
 
-      if (!data?.session) {
-        router.replace(`/login?redirect=${encodeURIComponent("/profile")}`);
+      if (!session) {
+        router.replace("/login?redirect=/profile");
         return;
       }
 
-      setSession(data.session);
-      setLoading(false);
+      setUser(session.user);
+
+      // Optional: load extended profile from a `profiles` table
+      // Adjust column & table names to your schema
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .single();
+
+      if (error && error.code !== "PGRST116") {
+        console.error("[profile] load profile error:", error);
+      }
+
+      if (mounted) {
+        setProfile(data || null);
+        setLoading(false);
+      }
     })();
 
-    const sub = supabase.auth.onAuthStateChange((_event, sess) => {
-      if (!sess) {
-        router.replace(`/login?redirect=${encodeURIComponent("/profile")}`);
-      } else {
-        setSession(sess);
-      }
+    // React to auth changes
+    const sub = supabase.auth.onAuthStateChange((_e, s) => {
+      if (!s) router.replace("/login?redirect=/profile");
     });
 
     return () => {
       mounted = false;
-      sub?.data?.subscription?.unsubscribe?.();
+      sub.data?.subscription?.unsubscribe?.();
     };
   }, [router]);
 
-  async function onSignOut() {
+  const signOut = async () => {
     await supabase.auth.signOut();
-    router.replace("/"); // go home after sign-out
-  }
+    router.replace("/");
+  };
 
   if (loading) {
     return (
       <main className="container-page py-10">
-        <p>Loading your profile…</p>
+        <h1 className="text-xl font-bold mb-3">Profile</h1>
+        <p className="text-gray-500">Loading…</p>
       </main>
     );
   }
 
-  const user = session?.user;
-
   return (
-    <main className="container-page py-10 max-w-2xl">
-      <h1 className="text-2xl font-bold mb-6">Profile</h1>
+    <main className="container-page py-10">
+      <h1 className="text-2xl font-bold mb-6">Your Profile</h1>
 
-      <div className="rounded-lg border p-4">
-        <div className="mb-2">
-          <span className="font-medium">User ID:</span>{" "}
-          <span className="text-gray-700">{user?.id}</span>
+      <div className="rounded-xl border bg-white p-6 shadow-sm">
+        <div className="mb-3">
+          <div className="text-sm text-gray-500">Email</div>
+          <div className="font-medium">{user?.email}</div>
         </div>
 
-        <div className="mb-2">
-          <span className="font-medium">Email:</span>{" "}
-          <span className="text-gray-700">{user?.email ?? "—"}</span>
-        </div>
-
-        <div className="mb-2">
-          <span className="font-medium">Phone:</span>{" "}
-          <span className="text-gray-700">{user?.phone ?? "—"}</span>
-        </div>
+        {profile && (
+          <>
+            <div className="mb-3">
+              <div className="text-sm text-gray-500">Display Name</div>
+              <div className="font-medium">{profile.display_name || "—"}</div>
+            </div>
+            <div className="mb-3">
+              <div className="text-sm text-gray-500">Phone</div>
+              <div className="font-medium">{profile.phone || "—"}</div>
+            </div>
+          </>
+        )}
 
         <button
-          onClick={onSignOut}
-          className="mt-4 inline-flex items-center rounded-md bg-black px-4 py-2 text-white hover:bg-gray-800"
+          onClick={signOut}
+          className="mt-6 rounded-full bg-black px-5 py-2 text-white hover:bg-gray-800"
         >
-          Sign Out
+          Sign out
         </button>
       </div>
     </main>
   );
 }
-   

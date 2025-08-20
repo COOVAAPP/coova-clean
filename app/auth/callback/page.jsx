@@ -1,29 +1,38 @@
 // app/auth/callback/page.jsx
+"use client";
+
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
-import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabaseServer";
+import { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import supabase from "@/lib/supabaseClient";
 
-/**
- * Server-side auth callback handler.
- * Exchanges the PKCE `code` for a session and then redirects.
- */
-export default async function AuthCallbackPage({ searchParams }) {
-  const code = searchParams?.code || null;
-  const next = searchParams?.next || "/";
+export default function AuthCallbackPage() {
+  const router = useRouter();
+  const params = useSearchParams();
 
-  // No code? Go home.
-  if (!code) redirect(next);
+  useEffect(() => {
+    const code = params.get("code");
+    const redirect = params.get("redirect") || "/";
 
-  const supabase = supabaseServer();
+    if (!code) {
+      router.replace(redirect);
+      return;
+    }
 
-  // Exchange code for session (server-side; cookies are handled by supabaseServer)
-  const { error } = await supabase.auth.exchangeCodeForSession({ code });
+    (async () => {
+      // PKCE exchange on the client
+      const { error } = await supabase.auth.exchangeCodeForSession({ code });
+      if (error) console.error("[auth/callback] exchange error:", error);
+      router.replace(redirect);
+    })();
+  }, [params, router]);
 
-  // Optional logging; always redirect away from callback
-  if (error) {
-    console.error("[auth/callback] exchange error:", error);
-  }
-
-  redirect(next);
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center text-gray-600">
+      Finishing sign-in…
+    </div>
+  );
 }

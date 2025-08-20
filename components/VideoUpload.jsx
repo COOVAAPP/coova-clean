@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import supabase from "@/lib/supabaseClient";
 import { uploadToBucket, insertAsset, deleteAsset } from "@/lib/supabaseStorage";
 
 const MAX_SECONDS = 180;
