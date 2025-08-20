@@ -1,6 +1,3 @@
-// app/not-found.jsx
-// FULL FILE — copy & paste
-
 export default function NotFound() {
   return (
     <html lang="en">
