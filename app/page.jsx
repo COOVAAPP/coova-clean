@@ -1,14 +1,20 @@
-'use client';
+"use client";
 
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
+
+import Link from "next/link";
 import Hero from "@/components/Hero";
+import CategoryCardGrid from "@/components/CategoryCard"; // if you use it
 
 export default function Home() {
   return (
     <main className="flex min-h-screen flex-col">
-      {/* Hero with rotating backgrounds + search */}
+      {/* HERO */}
       <Hero />
 
-      {/* Explore Categories */}
+      {/* CATEGORY CARDS */}
       <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
         <h2 className="mb-8 text-center text-2xl font-bold text-gray-800">
           Explore Categories
@@ -80,12 +86,12 @@ export default function Home() {
           List your pool, backyard, car, or creative venue space and start generating income today.
         </p>
         <div className="mt-6 text-center">
-          <a
+          <Link
             href="/list"
             className="inline-block rounded-full bg-white px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-gray-100"
           >
             Start Hosting
-          </a>
+          </Link>
         </div>
       </section>
     </main>
