@@ -1,44 +1,55 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+/** Make this route always run on the client and never be cached */
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
 
-export default function OAuthCallback() {
-  const searchParams = useSearchParams();
-  const [msg, setMsg] = useState("Completing sign-in…");
+import { useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
+import { supabase } from '@/lib/supabaseClient';
+
+/** The inner component that uses useSearchParams must be wrapped in Suspense */
+function CallbackInner() {
+  const router = useRouter();
+  const params = useSearchParams();
 
   useEffect(() => {
+    const code = params.get('code');
+
+    // If we don't have a code, just go home
+    if (!code) {
+      router.replace('/');
+      return;
+    }
+
     (async () => {
-      try {
-        const code = searchParams.get("code");
-        const redirect = searchParams.get("redirect") || "/";
+      // Exchange the PKCE code for a session
+      // supabase-js v2 signature:
+      const { error } = await supabase.auth.exchangeCodeForSession({ code });
 
-        if (!code) {
-          setMsg("Missing authorization code. Returning to login…");
-          setTimeout(() => (window.location.href = "/login"), 900);
-          return;
-        }
-
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) {
-          setMsg("Sign-in failed. Redirecting to login…");
-          setTimeout(() => (window.location.href = "/login"), 900);
-          return;
-        }
-
-        // success: go to homepage (or provided redirect)
-        window.location.replace(redirect);
-      } catch {
-        setMsg("Unexpected error. Redirecting to login…");
-        setTimeout(() => (window.location.href = "/login"), 900);
+      // If anything goes wrong, we still send the user to the homepage
+      if (error) {
+        console.error('[auth/callback] exchange error:', error);
       }
+
+      // Replace, so the callback URL doesn't stay in history
+      router.replace('/');
     })();
-  }, [searchParams]);
+  }, [params, router]);
 
   return (
-    <main className="container-page py-10">
-      <p>{msg}</p>
-    </main>
+    <div className="min-h-[60vh] flex items-center justify-center text-gray-700">
+      Finishing sign-in…
+    </div>
+  );
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={<div className="min-h-[60vh] flex items-center justify-center">Loading…</div>}>
+      <CallbackInner />
+    </Suspense>
   );
 }
