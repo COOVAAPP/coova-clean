@@ -1,27 +1,40 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import dynamicImport from "next/dynamic";
-import { supabase } from "@/lib/supabaseClient";
-
-// Dynamic client-only modal
-const AuthModal = dynamic(() => import("@/components/AuthModal"), { ssr: false });
-
-// Disable prerendering
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabaseClient'; // or '../lib/supabaseClient' if you don't use @ alias
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [open, setOpen] = useState(true);
+  const [email, setEmail] = useState('');
+  const [status, setStatus] = useState('');
+
+  async function handleMagicLink(e) {
+    e.preventDefault();
+    setStatus('Sending…');
+    const { error } = await supabase.auth.signInWithOtp({ email });
+    setStatus(error ? `Error: ${error.message}` : 'Check your email for the link.');
+  }
+
+  useEffect(() => {
+    // optional: handle session or redirect
+    supabase.auth.getSession().then(({ data }) => {
+      // console.log(data.session)
+    });
+  }, []);
 
   return (
-    <AuthModal
-      onClose={() => {
-        setOpen(false);
-        router.push("/");
-      }}
-    />
+    <main style={{ padding: 24 }}>
+      <h1>Login</h1>
+      <form onSubmit={handleMagicLink}>
+        <input
+          type="email"
+          placeholder="you@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+        <button type="submit">Send magic link</button>
+      </form>
+      <p>{status}</p>
+    </main>
   );
 }
