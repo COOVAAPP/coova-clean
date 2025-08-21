@@ -9,12 +9,11 @@ const AVATAR_BUCKET = process.env.NEXT_PUBLIC_AVATAR_BUCKET || "avatars";
 const SIGNED_URL_EXPIRES = Number(process.env.NEXT_PUBLIC_AVATAR_URL_TTL || 3600);
 
 export default function Header() {
-  const [session, setSession] = useState<Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]>(null);
+  const [session, setSession] = useState(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
-
-  const [avatarUrl, setAvatarUrl] = useState<string>("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     (async () => {
@@ -32,7 +31,7 @@ export default function Header() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  async function refreshAvatar(userId?: string) {
+  async function refreshAvatar(userId) {
     if (!userId) {
       setAvatarUrl("");
       return;
@@ -41,7 +40,7 @@ export default function Header() {
       .from("profiles")
       .select("avatar_path")
       .eq("id", userId)
-      .maybeSingle<{ avatar_path: string | null }>();
+      .maybeSingle();
 
     if (prof?.avatar_path) {
       const { data, error } = await supabase.storage
@@ -55,8 +54,8 @@ export default function Header() {
 
   // click-outside close
   useEffect(() => {
-    const close = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+    const close = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setDropdownOpen(false);
       }
     };

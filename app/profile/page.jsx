@@ -4,34 +4,24 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-type Profile = {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  bio: string | null;
-  avatar_path: string | null;
-  updated_at: string | null;
-};
-
 const AVATAR_BUCKET = process.env.NEXT_PUBLIC_AVATAR_BUCKET || "avatars";
 const MAX_UPLOAD_MB = 5;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-// 1 hour signed URL (seconds)
-const SIGNED_URL_EXPIRES = Number(process.env.NEXT_PUBLIC_AVATAR_URL_TTL || 3600);
+const SIGNED_URL_EXPIRES = Number(process.env.NEXT_PUBLIC_AVATAR_URL_TTL || 3600); // seconds
 
 export default function ProfilePage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [emailInitial, setEmailInitial] = useState<string>("U");
+  const [userId, setUserId] = useState(null);
+  const [emailInitial, setEmailInitial] = useState("U");
 
   // profile fields
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName]   = useState("");
   const [bio, setBio]             = useState("");
-  const [avatarPath, setAvatarPath] = useState<string | null>(null);
-  const [avatarUrl, setAvatarUrl] = useState<string>("");
+  const [avatarPath, setAvatarPath] = useState(null);
+  const [avatarUrl, setAvatarUrl] = useState("");
 
   // UI state
   const [uploading, setUploading] = useState(false);
@@ -55,12 +45,12 @@ export default function ProfilePage() {
       setUserId(session.user.id);
       setEmailInitial((session.user.email?.[0] || "U").toUpperCase());
 
-      // load profile or seed
+      // load profile
       const { data: prof, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", session.user.id)
-        .maybeSingle<Profile>();
+        .maybeSingle();
 
       if (error) {
         console.error(error);
@@ -96,8 +86,7 @@ export default function ProfilePage() {
     };
   }, [router]);
 
-  /** Generate a signed URL for a given path */
-  async function signAvatar(path: string): Promise<string | null> {
+  async function signAvatar(path) {
     const { data, error } = await supabase.storage
       .from(AVATAR_BUCKET)
       .createSignedUrl(path, SIGNED_URL_EXPIRES);
@@ -108,8 +97,7 @@ export default function ProfilePage() {
     return data.signedUrl;
   }
 
-  /** Upload avatar to private bucket, save storage path, and refresh signed URL */
-  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleUpload(e) {
     const file = e.target.files?.[0];
     if (!file || !userId) return;
 
@@ -131,7 +119,6 @@ export default function ProfilePage() {
 
       if (upErr) throw upErr;
 
-      // persist storage path in DB
       const { error: saveErr } = await supabase.from("profiles").upsert({
         id: userId,
         avatar_path: path,
@@ -145,7 +132,7 @@ export default function ProfilePage() {
       const url = await signAvatar(path);
       setAvatarUrl(url || "");
       showToast("Profile photo updated!");
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
       showToast(`Upload error: ${err.message || err}`);
     } finally {
@@ -153,8 +140,7 @@ export default function ProfilePage() {
     }
   }
 
-  /** Save text fields */
-  async function handleSave(e: React.FormEvent) {
+  async function handleSave(e) {
     e.preventDefault();
     if (!userId) return;
 
@@ -173,7 +159,7 @@ export default function ProfilePage() {
 
       setSavedOnce(true);
       showToast("✅ Your profile has been updated successfully!");
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
       showToast(`Error: ${err.message || err}`);
     } finally {
@@ -181,17 +167,16 @@ export default function ProfilePage() {
     }
   }
 
-  /** Toast helper */
-  function showToast(message: string) {
+  function showToast(message) {
     setToast(message);
     setTimeout(() => setToast(""), 3000);
   }
 
-  function toNull(v: string | null | undefined) {
+  function toNull(v) {
     if (v === null || v === undefined) return null;
     const t = typeof v === "string" ? v.trim() : v;
     return t ? t : null;
-  }
+    }
 
   if (loading) {
     return (
