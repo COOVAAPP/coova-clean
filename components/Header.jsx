@@ -1,53 +1,49 @@
+// app/components/Header.jsx
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { supabase } from "../lib/supabaseClient";
+import { useEffect, useRef, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import AuthModal from "@/components/AuthModal";
 
-const AVATAR_BUCKET = "avatars";
-const SIGNED_URL_EXPIRES = 60 * 60; // 1 hour
+const AVATAR_BUCKET = process.env.NEXT_PUBLIC_AVATAR_BUCKET || "avatars";
+const SIGNED_URL_EXPIRES = Number(process.env.NEXT_PUBLIC_AVATAR_URL_TTL || 3600); // seconds
 
-export default function Header({ session }) {
-  const router = useRouter();
+export default function Header() {
+  const [session, setSession] = useState(null);
+  const [authOpen, setAuthOpen] = useState(false);
+
+  // dropdown
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // avatar image (signed URL)
   const [avatarUrl, setAvatarUrl] = useState("");
 
-  // Fetch avatar signed URL
-  const refreshAvatar = async (userId) => {
-    if (!userId) return;
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("avatar_path")
-      .eq("id", userId)
-      .single();
-
-    if (error || !data?.avatar_path) {
-      setAvatarUrl("");
-      return;
-    }
-
-    const { data: signed, error: signErr } = await supabase.storage
-      .from(AVATAR_BUCKET)
-      .createSignedUrl(data.avatar_path, SIGNED_URL_EXPIRES);
-
-    if (!signErr && signed?.signedUrl) {
-      setAvatarUrl(signed.signedUrl);
-    }
-  };
-
-  // Initial fetch
+  // ---- session + initial avatar
   useEffect(() => {
-    if (session?.user?.id) {
-      refreshAvatar(session.user.id);
-    }
-  }, [session]);
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      const s = data.session;
+      setSession(s);
+      await refreshAvatar(s?.user?.id);
+    })();
 
-  // Subscribe to profile updates (realtime)
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_e, s) => {
+      setSession(s);
+      await refreshAvatar(s?.user?.id);
+    });
+
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // ---- realtime: refresh avatar when profiles row updates
   useEffect(() => {
     if (!session?.user?.id) return;
 
+    const channelName = `profile-avatar-${session.user.id}`;
     const channel = supabase
-      .channel("profile-avatar")
+      .channel(channelName)
       .on(
         "postgres_changes",
         {
@@ -56,18 +52,8 @@ export default function Header({ session }) {
           table: "profiles",
           filter: `id=eq.${session.user.id}`,
         },
-        async (payload) => {
-          const newPath = payload.new?.avatar_path;
-          if (newPath) {
-            const { data: signed, error: signErr } = await supabase.storage
-              .from(AVATAR_BUCKET)
-              .createSignedUrl(newPath, SIGNED_URL_EXPIRES);
-            if (!signErr && signed?.signedUrl) {
-              setAvatarUrl(signed.signedUrl);
-            }
-          } else {
-            setAvatarUrl("");
-          }
+        async () => {
+          await refreshAvatar(session.user.id);
         }
       )
       .subscribe();
@@ -77,70 +63,146 @@ export default function Header({ session }) {
     };
   }, [session]);
 
-  // Handle logout
+  // ---- click outside to close dropdown
+  useEffect(() => {
+    const close = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    if (dropdownOpen) document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [dropdownOpen]);
+
+  // ---- fetch signed avatar URL
+  async function refreshAvatar(userId) {
+    if (!userId) {
+      setAvatarUrl("");
+      return;
+    }
+
+    const { data: prof, error } = await supabase
+      .from("profiles")
+      .select("avatar_path")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error || !prof?.avatar_path) {
+      setAvatarUrl("");
+      return;
+    }
+
+    const { data: signed, error: signErr } = await supabase.storage
+      .from(AVATAR_BUCKET)
+      .createSignedUrl(prof.avatar_path, SIGNED_URL_EXPIRES);
+
+    if (!signErr && signed?.signedUrl) {
+      // add a cache-buster so updates swap instantly
+      setAvatarUrl(`${signed.signedUrl}&r=${Date.now()}`);
+    }
+  }
+
+  // ---- sign out
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    router.push("/login");
+    window.location.href = "/";
   };
 
+  const userInitial = (session?.user?.email?.[0] || "U").toUpperCase();
+
   return (
-    <header className="flex justify-between items-center p-4 border-b">
-      <Link href="/" className="text-4xl font-bold text-cyan-500 hover:text-black">
-        COOVA
-      </Link>
-
-      <nav className="flex items-center gap-6">
-        <Link href="/browse" className="hover:text-cyan-500">
-          Browse
-        </Link>
-        <Link href="/list" className="hover:text-cyan-500">
-          List your space
-        </Link>
-
-        {session ? (
-          <div className="relative group">
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt="avatar"
-                className="w-10 h-10 rounded-full cursor-pointer border-2 border-cyan-500"
-              />
-            ) : (
-              <div className="w-10 h-10 flex items-center justify-center rounded-full bg-cyan-500 text-white font-bold cursor-pointer">
-                {session.user.email?.[0]?.toUpperCase() || "U"}
-              </div>
-            )}
-
-            <div className="absolute right-0 mt-2 hidden group-hover:block bg-white shadow-lg rounded-md">
-              <Link
-                href="/profile"
-                className="block px-4 py-2 hover:bg-cyan-50"
-              >
-                Profile
-              </Link>
-              <Link
-                href="/dashboard"
-                className="block px-4 py-2 hover:bg-cyan-50"
-              >
-                Dashboard
-              </Link>
-              <button
-                onClick={handleSignOut}
-                className="w-full text-left px-4 py-2 hover:bg-cyan-50"
-              >
-                Sign out
-              </button>
-            </div>
-          </div>
-        ) : (
+    <>
+      <header className="w-full bg-white border-b border-gray-200 relative">
+        <div className="max-w-7xl mx-auto flex items-center justify-between px-4 py-3">
+          {/* Logo */}
           <Link
-            href="/login"
-            className="px-4 py-2 bg-cyan-500 text-white rounded-md hover:bg-black"
+            href="/"
+            className="text-4xl font-extrabold text-cyan-500 tracking-tight hover:text-black"
           >
-            Sign in
+            COOVA
           </Link>
-        )}
-      </nav>
-    </header>
+
+          {/* Nav */}
+          <nav className="flex items-center gap-6">
+            <Link href="/" className="font-bold hover:text-cyan-500">
+              Browse
+            </Link>
+            <Link href="/list" className="font-bold hover:text-cyan-500">
+              List your space
+            </Link>
+
+            {session ? (
+              <div className="relative" ref={dropdownRef}>
+                {/* Avatar button (click to toggle) */}
+                <button
+                  onClick={() => setDropdownOpen((v) => !v)}
+                  className="w-9 h-9 flex items-center justify-center rounded-full bg-cyan-500 font-bold text-white overflow-hidden focus:outline-none"
+                  aria-haspopup="menu"
+                  aria-expanded={dropdownOpen}
+                >
+                  {avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={avatarUrl}
+                      alt="avatar"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    userInitial
+                  )}
+                </button>
+
+                {/* Dropdown (animated) */}
+                <div
+                  className={[
+                    "absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white border border-gray-200 py-2 z-50 origin-top-right transform transition",
+                    "duration-150 ease-out",
+                    dropdownOpen
+                      ? "opacity-100 translate-y-0 scale-100 pointer-events-auto"
+                      : "opacity-0 -translate-y-1 scale-95 pointer-events-none",
+                  ].join(" ")}
+                  role="menu"
+                  aria-hidden={!dropdownOpen}
+                >
+                  <Link
+                    href="/profile"
+                    className="block px-4 py-2 text-sm font-bold hover:bg-gray-50 hover:text-cyan-500"
+                    onClick={() => setDropdownOpen(false)}
+                    role="menuitem"
+                  >
+                    Profile
+                  </Link>
+                  <Link
+                    href="/dashboard"
+                    className="block px-4 py-2 text-sm font-bold hover:bg-gray-50 hover:text-cyan-500"
+                    onClick={() => setDropdownOpen(false)}
+                    role="menuitem"
+                  >
+                    Dashboard
+                  </Link>
+                  <button
+                    onClick={handleSignOut}
+                    className="w-full text-left px-4 py-2 text-sm font-bold hover:bg-gray-50 hover:text-cyan-500"
+                    role="menuitem"
+                  >
+                    Sign out
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setAuthOpen(true)}
+                className="rounded-md bg-cyan-500 px-3.5 py-1.5 text-sm font-bold text-white hover:text-black"
+              >
+                Sign in
+              </button>
+            )}
+          </nav>
+        </div>
+      </header>
+
+      {/* Sign-in modal */}
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+    </>
   );
 }
