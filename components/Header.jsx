@@ -24,7 +24,7 @@ export default function Header() {
     <header className="w-full bg-white border-b border-gray-200">
       <div className="max-w-7xl mx-auto flex items-center justify-between px-4 py-3">
         {/* Logo */}
-        <Link href="/" className="text-4xl font-extrabold text-white tracking-tight">
+        <Link href="/" className="text-4xl font-extrabold text-cyan-500 tracking-tight">
           COOVA
         </Link>
 
