@@ -1,6 +1,7 @@
+export const dynamic = "force-dynamic";
+
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-
 
 export async function GET(request) {
   const url = new URL(request.url);

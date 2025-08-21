@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient'; // or '../lib/supabaseClient'
 
+export const dynamic = "force-dynamic";
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [msg, setMsg] = useState('');

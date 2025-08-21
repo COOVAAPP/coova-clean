@@ -1,4 +1,5 @@
 export const runtime = 'nodejs'; // Stripe requires Node runtime (not Edge)
+export const dynamic = "force-dynamic";
 
 import { NextResponse } from 'next/server';
 import { stripe } from '../../../lib/stripe.js'; // <-- relative path

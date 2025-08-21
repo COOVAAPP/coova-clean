@@ -1,8 +1,7 @@
+export const dynamic = "force-dynamic";
 // app/api/listings/route.js
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabaseClient' // NOTE: shared client; no createClient here
-
-export const dynamic = 'force-dynamic'
 
 export async function GET() {
   const { data, error } = await supabase
