@@ -55,7 +55,7 @@ export default function Header() {
           ) : (
             <Link
               href="/login"
-              className="rounded-md bg-cyan-500 px-3.5 py-1.5 text-sm font-bold text-white hover:bg-cyan-500"
+              className="rounded-md bg-cyan-500 px-3.5 py-1.5 text-sm font-bold text-white hover:text-black"
             >
               Sign in
             </Link>
