@@ -1,26 +1,17 @@
-// /app/list/create/page.jsx
+// app/list/create/page.jsx
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import CreateListingClient from "@/components/CreateListingClient";
 
 export default function CreateListingPage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!data?.session) {
-        router.replace("/login?redirect=/list/create");
-      }
-    })();
-  }, [router]);
-
   return (
-    <main className="container-page py-10">
-      <h1 className="text-2xl font-bold">Create a Listing</h1>
-      <p className="mt-2 text-gray-600">Form coming soon…</p>
+    <main className="max-w-6xl mx-auto px-4 py-10">
+      <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">
+        Create a new listing
+      </h1>
+      <div className="mt-6">
+        <CreateListingClient />
+      </div>
     </main>
   );
 }
