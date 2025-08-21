@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 /** Little message box */
@@ -20,21 +21,23 @@ function Msg({ kind = "info", children }) {
  *  - listingId   (string, required)
  *  - priceCents  (number, required)  // hourly price in cents
  *  - ownerId     (string, required)  // host user id (to block self-booking in UI)
+ *  - onSuccessRedirect (string, optional) e.g. "/dashboard/bookings"
  */
-export default function BookingForm({ listingId, priceCents, ownerId }) {
+export default function BookingForm({ listingId, priceCents, ownerId, onSuccessRedirect = "/dashboard/bookings" }) {
+  const router = useRouter();
   const [session, setSession] = useState(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null); // {kind, text}
 
   // datetime-local fields
-  const [startAt, setStartAt] = useState(""); // ISO-ish local "YYYY-MM-DDTHH:mm"
-  const [endAt, setEndAt] = useState("");     // same
+  const [startAt, setStartAt] = useState("");
+  const [endAt, setEndAt] = useState("");
 
   // other fields
   const [guests, setGuests] = useState(1);
   const [note, setNote] = useState("");
 
-  // min attribute for datetime-local (now, rounded to next 10 minutes for nicer UX)
+  // min attribute for datetime-local (rounded to next 10 minutes)
   const minLocal = useMemo(() => {
     const d = new Date();
     const ms = 10 * 60 * 1000;
@@ -42,7 +45,7 @@ export default function BookingForm({ listingId, priceCents, ownerId }) {
     return toLocalInputValue(rounded);
   }, []);
 
-  // detect auth (and keep in sync)
+  // auth
   useEffect(() => {
     let mounted = true;
     supabase.auth.getSession().then(({ data }) => {
@@ -59,72 +62,41 @@ export default function BookingForm({ listingId, priceCents, ownerId }) {
     const b = parseLocalDate(endAt);
     if (!a || !b || b <= a) return 0;
     const diffHrs = (b - a) / (1000 * 60 * 60);
-    return Math.max(1, Math.ceil(diffHrs)); // round up, minimum 1 hour
+    return Math.max(1, Math.ceil(diffHrs)); // round up, min 1 hour
   }, [startAt, endAt]);
 
-  const totalCents = useMemo(() => {
-    if (!priceCents || hours <= 0) return 0;
-    return hours * priceCents;
-  }, [priceCents, hours]);
-
+  const totalCents = useMemo(() => (priceCents && hours ? hours * priceCents : 0), [priceCents, hours]);
   const totalLabel = useMemo(
-    () => (totalCents > 0
-      ? (totalCents / 100).toLocaleString(undefined, { style: "currency", currency: "USD" })
-      : "—"),
+    () => (totalCents > 0 ? (totalCents / 100).toLocaleString(undefined, { style: "currency", currency: "USD" }) : "—"),
     [totalCents]
   );
 
   function show(kind, text) {
     setMsg({ kind, text });
-    // auto-clear success/info after a few seconds
-    if (kind !== "error") setTimeout(() => setMsg(null), 3000);
+    if (kind !== "error") setTimeout(() => setMsg(null), 2400);
   }
 
   function validateClient() {
-    // signed in?
-    if (!session?.user) {
-      show("error", "Please sign in to book.");
-      return false;
-    }
-    // not the host (UI-level guard; RLS still blocks on server)
-    if (ownerId && session.user.id === ownerId) {
-      show("error", "You can’t book your own listing.");
-      return false;
-    }
-    // fields present?
-    if (!startAt || !endAt) {
-      show("error", "Please choose start and end time.");
-      return false;
-    }
+    if (!session?.user) { show("error", "Please sign in to book."); return false; }
+    if (ownerId && session.user.id === ownerId) { show("error", "You can’t book your own listing."); return false; }
+    if (!startAt || !endAt) { show("error", "Please choose start and end time."); return false; }
 
     const start = parseLocalDate(startAt);
     const end = parseLocalDate(endAt);
     const now = new Date();
 
-    // future times
-    if (start <= now) {
-      show("error", "Start time must be in the future.");
-      return false;
-    }
-    if (end <= start) {
-      show("error", "End time must be after start time.");
-      return false;
-    }
+    if (start <= now) { show("error", "Start time must be in the future."); return false; }
+    if (end <= start) { show("error", "End time must be after start time."); return false; }
 
-    // min 1 hour (in case user picks very short range)
     const diffHrs = (end - start) / (1000 * 60 * 60);
-    if (diffHrs < 1) {
-      show("error", "Minimum booking is 1 hour.");
-      return false;
-    }
+    if (diffHrs < 1) { show("error", "Minimum booking is 1 hour."); return false; }
 
     return true;
-    }
+  }
 
   async function submit(e) {
     e.preventDefault();
     setMsg(null);
-
     if (!validateClient()) return;
 
     setBusy(true);
@@ -143,7 +115,6 @@ export default function BookingForm({ listingId, priceCents, ownerId }) {
       const { error } = await supabase.from("bookings").insert(payload);
 
       if (error) {
-        // Friendly error mapping
         const isOverlap =
           error.code === "23P01" ||
           (error.message && /bookings_no_overlap_gist/i.test(error.message)) ||
@@ -162,9 +133,8 @@ export default function BookingForm({ listingId, priceCents, ownerId }) {
         return;
       }
 
-      show("success", "✅ Request sent! The host will review your booking.");
-      // keep selections so the user remembers what they sent, or clear if you prefer:
-      // setStartAt(""); setEndAt(""); setGuests(1); setNote("");
+      show("success", "✅ Request sent! Redirecting…");
+      setTimeout(() => { router.push(onSuccessRedirect); }, 900);
     } finally {
       setBusy(false);
     }
@@ -245,7 +215,6 @@ export default function BookingForm({ listingId, priceCents, ownerId }) {
 
 /* ---------- helpers ---------- */
 
-// Convert Date -> "YYYY-MM-DDTHH:mm" in local time for <input type="datetime-local">
 function toLocalInputValue(d) {
   const pad = (n) => String(n).padStart(2, "0");
   const yyyy = d.getFullYear();
@@ -256,14 +225,12 @@ function toLocalInputValue(d) {
   return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
 }
 
-// Parse "YYYY-MM-DDTHH:mm" (local) -> Date
 function parseLocalDate(value) {
   if (!value) return null;
-  // value is local time; create a Date with that local wall-clock
   const [datePart, timePart] = value.split("T");
   if (!datePart || !timePart) return null;
   const [y, m, d] = datePart.split("-").map(Number);
   const [hh, mm] = timePart.split(":").map(Number);
-  const dt = new Date(y, (m - 1), d, hh, mm, 0, 0);
+  const dt = new Date(y, m - 1, d, hh, mm, 0, 0);
   return isNaN(dt.getTime()) ? null : dt;
 }
