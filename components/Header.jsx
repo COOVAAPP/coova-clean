@@ -1,16 +1,19 @@
-// app/components/header.jsx
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import AuthModal from "./AuthModal";
 
 export default function Header() {
-  const pathname = usePathname();
-  const [authOpen, setAuthOpen] = useState(false);
- 
+  const [session, setSession] = useState(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+      setSession(s);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -19,59 +22,46 @@ export default function Header() {
 
   return (
     <header className="w-full bg-white border-b border-gray-200">
-      <div className="max-w-7xl mx-auto flex justify-between items-center px-6 py-4">
+      <div className="max-w-7xl mx-auto flex items-center justify-between px-4 py-3">
         {/* Logo */}
-        <Link href="/" className="text-2xl font-extrabold tracking-tight text-gray-900">
-          Coova
+        <Link href="/" className="text-4xl font-extrabold text-white tracking-tight">
+          COOVA
         </Link>
 
-        {/* Navigation Links */}
+        {/* Navigation */}
         <nav className="flex items-center gap-6">
-          <Link
-            href="/list"
-            className={`hover:text-indigo-600 ${
-              pathname === "/list" ? "text-indigo-600 font-semibold" : "text-gray-700"
-            }`}
-          >
-            List Your Space
+          <Link href="/" className="font-bold hover:text-cyan-500">
+            Browse
+          </Link>
+          <Link href="/list" className="font-bold hover:text-cyan-500">
+            List your space
           </Link>
 
-          <Link
-            href="/profile"
-            className={`hover:text-indigo-600 ${
-              pathname === "/profile" ? "text-indigo-600 font-semibold" : "text-gray-700"
-            }`}
-          >
-            Profile
-          </Link>
-
-          <Link
-            href="/dashboard"
-            className={`hover:text-indigo-600 ${
-              pathname === "/dashboard" ? "text-indigo-600 font-semibold" : "text-gray-700"
-            }`}
-          >
-            Dashboard
-          </Link>
-
-          {/* Auth Buttons */}
-          <button
-            onClick={() => setAuthOpen(true)}
-            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg shadow hover:bg-indigo-700"
-          >
-            Sign In
-          </button>
-          <button
-            onClick={handleSignOut}
-            className="px-4 py-2 text-sm font-medium text-gray-700 border rounded-lg hover:bg-gray-100"
-          >
-            Sign Out
-          </button>
+          {session ? (
+            <>
+              <Link href="/profile" className="font-bold hover:text-cyan-500">
+                Profile
+              </Link>
+              <Link href="/dashboard" className="font-bold hover:text-cyan-500">
+                Dashboard
+              </Link>
+              <button
+                onClick={handleSignOut}
+                className="rounded-md border px-3 py-1.5 text-sm font-bold hover:bg-gray-50"
+              >
+                Sign out
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              className="rounded-md bg-cyan-500 px-3.5 py-1.5 text-sm font-bold text-white hover:bg-cyan-500"
+            >
+              Sign in
+            </Link>
+          )}
         </nav>
       </div>
-
-      {/* Auth Modal */}
-      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
     </header>
   );
 }
