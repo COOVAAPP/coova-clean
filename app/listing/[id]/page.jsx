@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import BookingForm from "@/components/BookingForm";
 import { createClient } from "@supabase/supabase-js";
+import AmenityPill from "@/components/AmenityPill";
 
 export const dynamic = "force-dynamic";
 
@@ -197,20 +198,15 @@ export default async function ListingPage({ params }) {
 
           {/* Amenities */}
           {amenities && amenities.length > 0 && (
-            <section>
-              <h2 className="text-lg font-semibold">Amenities</h2>
-              <ul className="mt-2 flex flex-wrap gap-2">
-                {amenities.map((a, idx) => (
-                  <li
-                    key={`${a}-${idx}`}
-                    className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs text-gray-700"
-                  >
-                    {String(a)}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+          <section className="mt-6">
+             <h2 className="text-lg font-semibold">Amenities</h2>
+             <div className="mt-3 flex flex-wrap gap-2">
+                {amenities.map((a, i) => (
+                 <AmenityPill key={`${String(a)}-${i}`} name={String(a)} />
+             ))}
+            </div>
+        </section>
+      )}
 
           {/* Location */}
           {(mapUrl || address) && (
