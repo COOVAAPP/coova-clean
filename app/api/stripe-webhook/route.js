@@ -1,23 +1,25 @@
 // app/api/stripe-webhook/route.js
-import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient";
+import { NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabaseClient';
 
-export const dynamic = "force-dynamic";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY; // webhooks usually need service role
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error("Missing SUPABASE URL or SUPABASE_SERVICE_ROLE_KEY");
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: { persistSession: false },
-});
+export const dynamic = 'force-dynamic';
 
 export async function POST(req) {
-  // TODO: verify Stripe signature & process event
-  // Example save (placeholder):
-  // await supabase.from("events").insert({ type: "stripe", received_at: new Date().toISOString() });
-  return new NextResponse("ok", { status: 200 });
+  try {
+    // Optional: read the raw body if you need it later
+    // const body = await req.text();
+
+    // Example write (remove if not needed):
+    const { error } = await supabase.from('events').insert({
+      type: 'stripe',
+      received_at: new Date().toISOString(),
+    });
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true }, { status: 200 });
+  } catch (e) {
+    return NextResponse.json({ error: e.message || 'Unexpected error' }, { status: 500 });
+  }
 }
