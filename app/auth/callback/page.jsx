@@ -1,15 +1,29 @@
-// /app/auth/callback/page.jsx
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-export const fetchCache = "force-no-store";
+"use client";
 
-import { Suspense } from "react";
-import CallbackClient from "./CallbackClient";
+import { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 
-export default function AuthCallbackPage() {
+export default function AuthCallback() {
+  const router = useRouter();
+  const params = useSearchParams();
+
+  useEffect(() => {
+    const code = params.get("code");
+    if (!code) {
+      router.replace("/");
+      return;
+    }
+
+    // Complete the PKCE OAuth flow
+    supabase.auth.exchangeCodeForSession(code).then(() => {
+      router.replace("/"); // or '/dashboard'
+    });
+  }, [params, router]);
+
   return (
-    <Suspense fallback={<div className="min-h-[60vh] flex items-center justify-center">Finishing sign-in…</div>}>
-      <CallbackClient />
-    </Suspense>
+    <main className="max-w-3xl mx-auto px-4 py-10">
+      <h1 className="text-2xl font-extrabold text-cyan-500">Signing you in…</h1>
+    </main>
   );
 }
