@@ -1,4 +1,3 @@
-// app/components/Header.jsx
 "use client";
 
 import Link from "next/link";
@@ -10,22 +9,46 @@ export default function Header() {
   const [session, setSession] = useState(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState("");
   const dropdownRef = useRef(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+    supabase.auth.getSession().then(async ({ data }) => {
+      const s = data.session;
       setSession(s);
+      if (s?.user?.id) {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("avatar_url")
+          .eq("id", s.user.id)
+          .maybeSingle();
+        setAvatarUrl(prof?.avatar_url || "");
+      } else {
+        setAvatarUrl("");
+      }
     });
+
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_e, s) => {
+      setSession(s);
+      if (s?.user?.id) {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("avatar_url")
+          .eq("id", s.user.id)
+          .maybeSingle();
+        setAvatarUrl(prof?.avatar_url || "");
+      } else {
+        setAvatarUrl("");
+      }
+    });
+
     return () => sub.subscription.unsubscribe();
   }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
     const handleClick = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setDropdownOpen(false);
-      }
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setDropdownOpen(false);
     };
     if (dropdownOpen) document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -62,24 +85,27 @@ export default function Header() {
 
             {session ? (
               <div className="relative" ref={dropdownRef}>
-                {/* Avatar button */}
                 <button
                   onClick={() => setDropdownOpen((v) => !v)}
-                  className="w-9 h-9 flex items-center justify-center rounded-full bg-cyan-500 font-bold text-white focus:outline-none"
+                  className="w-9 h-9 flex items-center justify-center rounded-full bg-cyan-500 font-bold text-white focus:outline-none overflow-hidden"
                   aria-haspopup="menu"
                   aria-expanded={dropdownOpen}
                 >
-                  {userInitial}
+                  {avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    userInitial
+                  )}
                 </button>
 
-                {/* Animated dropdown (kept mounted for smooth in/out) */}
                 <div
                   className={[
                     "absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white border border-gray-200 py-2 z-50 origin-top-right transform transition",
                     "duration-150 ease-out",
                     dropdownOpen
                       ? "opacity-100 translate-y-0 scale-100 pointer-events-auto"
-                      : "opacity-0 -translate-y-1 scale-95 pointer-events-none"
+                      : "opacity-0 -translate-y-1 scale-95 pointer-events-none",
                   ].join(" ")}
                   role="menu"
                   aria-hidden={!dropdownOpen}
