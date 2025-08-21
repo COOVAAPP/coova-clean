@@ -186,6 +186,35 @@ export default function ProfilePage() {
     }
   }
 
+  const edgeBase = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`;
+
+async function edgeUploadAvatar(file, accessToken) {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch(`${edgeBase}/upload-avatar`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: fd,
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(text || "Upload failed");
+  return JSON.parse(text); // { path }
+}
+
+async function edgeDeleteAvatar(path, accessToken) {
+  const res = await fetch(`${edgeBase}/delete-avatar`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ path }),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(text || "Delete failed");
+  return JSON.parse(text); // { ok: true }
+}
+
   // ---- Validation helpers
   function validateFirstName(value) {
     const v = (value || "").trim();
