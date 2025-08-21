@@ -10,7 +10,7 @@ import AuthModal from "./AuthModal";
 export default function Header() {
   const pathname = usePathname();
   const [authOpen, setAuthOpen] = useState(false);
-  const supabase = createClient();
+ 
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
