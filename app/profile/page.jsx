@@ -5,10 +5,14 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function ProfilePage() {
+  const AVATAR_BUCKET = process.env.NEXT_PUBLIC_AVATAR_BUCKET || "avatars";
+  const MAX_UPLOAD_MB = 5;
+  const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  
   const router = useRouter();
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
-
+  
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName]   = useState("");
   const [bio, setBio]             = useState("");
@@ -81,43 +85,53 @@ export default function ProfilePage() {
   };
 
   const handleUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file || !session) return;
-    setUploading(true);
-    setMsg("");
+  const file = e.target.files?.[0];
+  if (!file || !session) return;
 
-    try {
-      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      const path = `${session.user.id}/${Date.now()}.${ext}`;
+  // Basic client checks
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    setMsg("Upload error: please choose a JPG, PNG, WEBP or GIF image.");
+    return;
+  }
+  if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+    setMsg(`Upload error: file must be ≤ ${MAX_UPLOAD_MB}MB.`);
+    return;
+  }
 
-      // Upload to storage
-      const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, {
-        cacheControl: "3600",
-        upsert: false,
-      });
-      if (upErr) throw upErr;
+  setUploading(true);
+  setMsg("");
 
-      // Get a public URL
-      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
-      const publicUrl = pub.publicUrl;
-      setAvatarUrl(publicUrl);
+  try {
+    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const path = `${session.user.id}/${Date.now()}.${ext}`;
 
-      // Save immediately to profile (so header can pick it up)
-      const { error: saveErr } = await supabase.from("profiles").upsert({
-        id: session.user.id,
-        avatar_url: publicUrl,
-        updated_at: new Date().toISOString(),
-      });
-      if (saveErr) throw saveErr;
+    // Upload
+    const { error: upErr } = await supabase.storage.from(AVATAR_BUCKET).upload(path, file, {
+      cacheControl: "3600",
+      upsert: false,
+    });
+    if (upErr) throw upErr;
 
-      setMsg("Profile photo updated!");
-    } catch (err) {
-      console.error(err);
-      setMsg(`Upload error: ${err.message || err}`);
-    } finally {
-      setUploading(false);
-    }
-  };
+    // Public URL
+    const { data: pub } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
+    const publicUrl = pub.publicUrl;
+    setAvatarUrl(publicUrl);
+
+    // Save to profile
+    const { error: saveErr } = await supabase.from("profiles").upsert({
+      id: session.user.id,
+      avatar_url: publicUrl,
+      updated_at: new Date().toISOString(),
+    });
+    if (saveErr) throw saveErr;
+
+    setMsg("Profile photo updated!");
+  } catch (err) {
+    setMsg(`Upload error: ${err.message || err}`);
+  } finally {
+    setUploading(false);
+  }
+};
 
   if (loading) {
     return (
