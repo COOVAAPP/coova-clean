@@ -6,13 +6,16 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
 
-const MAX_SIZE = 50 * 1024 * 1024; // 50 MB
 const BUCKET = "avatars";
+const MAX_SIZE = 50 * 1024 * 1024; // 50 MB
 
 serve(async (req) => {
   try {
     const token = req.headers.get("Authorization")?.replace("Bearer ", "");
-    const { data: { user }, error: userErr } = await supabase.auth.getUser(token);
+    const {
+      data: { user },
+      error: userErr,
+    } = await supabase.auth.getUser(token);
     if (userErr || !user) return new Response("Unauthorized", { status: 401 });
 
     const form = await req.formData();

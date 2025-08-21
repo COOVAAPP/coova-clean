@@ -1,0 +1,7 @@
+{
+  "importMap": "import_map.json",
+  "tasks": {
+    "serve:upload": "deno run -A --watch=static/,routes/ functions/upload-avatar/index.ts",
+    "serve:delete": "deno run -A --watch=static/,routes/ functions/delete-avatar/index.ts"
+  }
+}

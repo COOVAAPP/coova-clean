@@ -11,16 +11,21 @@ const BUCKET = "avatars";
 serve(async (req) => {
   try {
     const token = req.headers.get("Authorization")?.replace("Bearer ", "");
-    const { data: { user }, error: userErr } = await supabase.auth.getUser(token);
+    const {
+      data: { user },
+      error: userErr,
+    } = await supabase.auth.getUser(token);
     if (userErr || !user) return new Response("Unauthorized", { status: 401 });
 
     const { path } = await req.json();
     if (!path || typeof path !== "string") return new Response("Missing path", { status: 400 });
     if (!path.startsWith(`${user.id}/`)) return new Response("Forbidden", { status: 403 });
 
+    // remove file from storage
     const { error: delErr } = await supabase.storage.from(BUCKET).remove([path]);
     if (delErr) return new Response(delErr.message, { status: 500 });
 
+    // clear DB reference
     const { error: dbErr } = await supabase
       .from("profiles")
       .update({ avatar_path: null, updated_at: new Date().toISOString() })
