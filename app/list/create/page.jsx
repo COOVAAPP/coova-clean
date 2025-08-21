@@ -1,17 +1,24 @@
-// app/list/create/page.jsx
-"use client";
+// app/layout.js
+import "./globals.css";
+import Header from "@/components/Header";       // client component
+import Footer from "@/components/Footer";       // (client or server—either is fine)
+import AuthModal from "@/components/AuthModal"; // client component that watches ?auth=1
 
-import CreateListingClient from "@/components/CreateListingClient";
+export const metadata = {
+  title: "COOVA",
+  description: "Rent luxury spaces, share vibes.",
+};
 
-export default function CreateListingPage() {
+export default function RootLayout({ children }) {
   return (
-    <main className="max-w-6xl mx-auto px-4 py-10">
-      <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">
-        Create a new listing
-      </h1>
-      <div className="mt-6">
-        <CreateListingClient />
-      </div>
-    </main>
+    <html lang="en">
+      <body className="bg-gray-50 text-gray-900">
+        <Header />
+        {/* Mount globally so clicking “Sign in” (which sets ?auth=1) opens this anywhere */}
+        <AuthModal />
+        <div className="min-h-screen">{children}</div>
+        <Footer />
+      </body>
+    </html>
   );
 }
