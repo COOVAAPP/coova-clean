@@ -1,37 +1,18 @@
-"use client";
+// app/auth/callback/page.jsx
+// SERVER component (no "use client")
 
-import { useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
+import { Suspense } from "react";
+import CallbackClient from "./CallbackClient";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+export const dynamic = "force-dynamic";   // don't prerender
+export const revalidate = 0;              // no caching for auth callback
 
-export const dynamic = "force-dynamic"; // ⬅️ prevents prerender error
-
-export default function AuthCallback() {
-  const router = useRouter();
-  const params = useSearchParams();
-
-  useEffect(() => {
-    const code = params.get("code");
-    if (code) {
-      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
-        if (error) {
-          console.error("Auth callback error:", error.message);
-        }
-        router.replace("/dashboard"); // go somewhere safe after login
-      });
-    } else {
-      router.replace("/login");
-    }
-  }, [params, router]);
-
+export default function Page() {
   return (
-    <main className="flex h-screen items-center justify-center">
-      <p className="text-gray-600">Finishing sign in…</p>
+    <main className="max-w-xl mx-auto px-4 py-16">
+      <Suspense fallback={<p className="text-gray-600">Signing you in…</p>}>
+        <CallbackClient />
+      </Suspense>
     </main>
   );
 }

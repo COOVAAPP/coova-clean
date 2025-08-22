@@ -1,110 +1,79 @@
-// components/UserMenu.jsx
 "use client";
-
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/supabaseClient";
+import { useEffect, useRef, useState } from "react";
 
-// close on outside click
-function useOutside(ref, handler) {
-  useEffect(() => {
-    function onDown(e) {
-      if (ref.current && !ref.current.contains(e.target)) handler();
-    }
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [handler, ref]);
-}
-
-export default function UserMenu() {
-  const router = useRouter();
+export default function UserMenu({ initial, avatarUrl, onSignOut }) {
   const [open, setOpen] = useState(false);
-  const [session, setSession] = useState(null);
-  const [initials, setInitials] = useState("U");
-  const panelRef = useRef(null);
+  const rootRef = useRef(null);
 
-  useOutside(panelRef, () => setOpen(false));
-
+  // Close on outside click
   useEffect(() => {
-    let mounted = true;
-
-    (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!mounted) return;
-      setSession(data.session);
-
-      const user = data.session?.user;
-      if (user) {
-        const name =
-          user.user_metadata?.full_name ||
-          user.user_metadata?.name ||
-          user.email ||
-          "User";
-        const init = name
-          .replace(/[^A-Za-z ]/g, "")
-          .trim()
-          .split(/\s+/)
-          .slice(0, 2)
-          .map((s) => s[0])
-          .join("")
-          .toUpperCase()
-          .slice(0, 2);
-        setInitials(init || "U");
-      }
-    })();
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) =>
-      setSession(sess || null)
-    );
-    return () => sub.subscription?.unsubscribe?.();
+    function onDocClick(e) {
+      if (!rootRef.current) return;
+      if (!rootRef.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
   }, []);
 
-  if (!session) return null;
-
-  async function onSignOut() {
-    await supabase.auth.signOut();
-    setOpen(false);
-    router.refresh();
-    router.push("/");
-  }
-
   return (
-    <div className="relative" ref={panelRef}>
+    <div
+      ref={rootRef}
+      className="relative"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
       <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-cyan-500 font-extrabold shadow hover:opacity-90"
+        type="button"
         aria-label="Account menu"
+        onClick={(e) => {
+          e.stopPropagation(); // don't bubble to document
+          setOpen((v) => !v);
+        }}
+        className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-cyan-500 text-white font-bold"
       >
-        {initials}
+        {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={avatarUrl}
+            alt="avatar"
+            className="h-9 w-9 rounded-full object-cover"
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          (initial || "U").toUpperCase()
+        )}
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-56 rounded-xl border border-black/10 bg-white shadow-lg z-50">
-          <div className="px-4 py-3 border-b border-black/10">
-            <p className="text-sm text-gray-600">Signed in</p>
-            <p className="font-semibold text-gray-900 truncate">
-              {session.user.email}
-            </p>
-          </div>
-
-          <nav className="py-1">
-            <Link href="/listing?mine=1" className="block px-4 py-2 text-sm hover:bg-gray-50">
-              My Listings
-            </Link>
-            <Link href="/list" className="block px-4 py-2 text-sm hover:bg-gray-50">
-              Create Listing
-            </Link>
-            <Link href="/account" className="block px-4 py-2 text-sm hover:bg-gray-50">
-              Settings
-            </Link>
-            <button
-              onClick={onSignOut}
-              className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-            >
-              Sign out
-            </button>
-          </nav>
+        <div
+          className="absolute right-0 z-50 mt-2 w-48 rounded-md border border-gray-200 bg-white shadow-lg"
+          onClick={(e) => e.stopPropagation()} // clicks inside shouldn't bubble
+        >
+          <ul className="py-1 text-sm">
+            <li>
+              <Link className="block px-3 py-2 hover:bg-gray-50" href="/profile">
+                Profile
+              </Link>
+            </li>
+            <li>
+              <Link className="block px-3 py-2 hover:bg-gray-50" href="/dashboard">
+                Dashboard
+              </Link>
+            </li>
+            <li>
+              <button
+                className="block w-full px-3 py-2 text-left hover:bg-gray-50"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSignOut?.();
+                  setOpen(false);
+                }}
+              >
+                Sign out
+              </button>
+            </li>
+          </ul>
         </div>
       )}
     </div>

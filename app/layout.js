@@ -1,5 +1,6 @@
 // app/layout.js
 import "./globals.css";
+import { Suspense } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import AuthModal from "@/components/AuthModal";
@@ -14,8 +15,12 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body className="bg-gray-50 text-gray-900">
         <Header />
-        {/* Mount the auth modal globally so "Sign in" works anywhere */}
-        <AuthModal />
+
+        {/* Anything that uses useSearchParams must be inside Suspense */}
+        <Suspense>
+          <AuthModal />
+        </Suspense>
+
         <div className="min-h-screen">{children}</div>
         <Footer />
       </body>

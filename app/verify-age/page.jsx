@@ -1,120 +1,19 @@
 // app/verify-age/page.jsx
-"use client";
+import { Suspense } from "react";
+import VerifyAgeClient from "./VerifyAgeClient";
 
-import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
-
-// Prevent static prerendering & caching for this page
-export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic";  // disable prerender
 export const revalidate = 0;
 
 export default function VerifyAgePage() {
-  // Wrap the hook-using inner component in Suspense to satisfy Next’s warning
-  return (
-    <Suspense fallback={
-      <main className="max-w-xl mx-auto px-4 py-10">
-        <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">Age verification</h1>
-        <p className="mt-4 text-gray-600">Loading…</p>
-      </main>
-    }>
-      <VerifyAgeInner />
-    </Suspense>
-  );
-}
-
-function VerifyAgeInner() {
-  const router = useRouter();
-  const params = useSearchParams();
-
-  const [checked, setChecked] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState("");
-
-  const next = params.get("next") || "/";
-
-  // If not logged in, open auth modal and send them back here after login
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (cancelled) return;
-      if (!data?.session) {
-        // Trigger your modal (?auth=1) and return here on success
-        const ret = `/verify-age?next=${encodeURIComponent(next)}`;
-        router.replace(`/?auth=1&next=${encodeURIComponent(ret)}`);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [router, next]);
-
-  const onConfirm = async () => {
-    setErr("");
-    if (!checked) {
-      setErr("You must confirm you are 18+ to continue.");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const { data } = await supabase.auth.getSession();
-      const uid = data?.session?.user?.id;
-      if (!uid) {
-        // If somehow logged-out now, bounce to login modal and return here
-        const ret = `/verify-age?next=${encodeURIComponent(next)}`;
-        router.replace(`/?auth=1&next=${encodeURIComponent(ret)}`);
-        return;
-      }
-
-      const { error } = await supabase
-        .from("profiles")
-        .update({ is_adult: true })
-        .eq("id", uid);
-
-      if (error) throw error;
-
-      // Success → go to intended page
-      router.push(next);
-    } catch (e) {
-      setErr(e?.message || "Something went wrong.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   return (
     <main className="max-w-xl mx-auto px-4 py-10">
-      <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">Age verification</h1>
-      <p className="mt-4 text-gray-600">
-        You must be 18 years or older to create a listing or book a space.
-      </p>
-
-      <div className="mt-6 flex items-start gap-3 rounded-md border border-gray-200 bg-white p-4">
-        <input
-          id="adult"
-          type="checkbox"
-          className="mt-1 h-5 w-5 rounded border-gray-300 text-cyan-600 focus:ring-cyan-600"
-          checked={checked}
-          onChange={(e) => setChecked(e.target.checked)}
-        />
-        <label htmlFor="adult" className="text-sm text-gray-800">
-          I confirm that I am 18 years of age or older.
-        </label>
-      </div>
-
-      {err && <p className="mt-3 text-sm text-red-600">{err}</p>}
-
-      <div className="mt-6">
-        <button
-          onClick={onConfirm}
-          disabled={saving}
-          className="rounded-md bg-cyan-500 px-4 py-2 font-bold text-white hover:bg-cyan-600 disabled:opacity-50"
-        >
-          {saving ? "Saving…" : "Continue"}
-        </button>
-      </div>
+      <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">
+        Age Verification
+      </h1>
+      <Suspense fallback={<p className="mt-4 text-gray-600">Loading verify form…</p>}>
+        <VerifyAgeClient />
+      </Suspense>
     </main>
   );
 }

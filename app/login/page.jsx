@@ -1,34 +1,14 @@
-'use client';
+// app/login/page.jsx  (SERVER COMPONENT)
+import AuthModal from "@/components/AuthModal"; // this is a client component
 
-import { useState } from 'react';
-import { supabase } from '@/lib/supabaseClient'; // or '../lib/supabaseClient'
+export const dynamic = "force-dynamic"; // valid because this file is server-side
+export const revalidate = 0;             // also valid here
 
-export const dynamic = "force-dynamic";
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [msg, setMsg] = useState('');
-
-  const onSubmit = async (e) => {
-    e.preventDefault();
-    setMsg('Sending…');
-    const { error } = await supabase.auth.signInWithOtp({ email });
-    setMsg(error ? `Error: ${error.message}` : 'Check your email for the link.');
-  };
-
   return (
-    <main style={{ padding: 24 }}>
-      <h1>Login</h1>
-      <form onSubmit={onSubmit}>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
-          required
-        />
-        <button type="submit">Send magic link</button>
-      </form>
-      <p>{msg}</p>
+    <main className="max-w-xl mx-auto px-4 py-16">
+      {/* If your AuthModal normally opens via ?auth=1, you can pass a prop to force it open */}
+      <AuthModal standalone />
     </main>
   );
 }

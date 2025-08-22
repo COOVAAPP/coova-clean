@@ -1,33 +1,53 @@
-// /app/auth/callback/CallbackClient.jsx
+// app/auth/callback/CallbackClient.jsx
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function CallbackClient() {
   const router = useRouter();
   const params = useSearchParams();
+  const [err, setErr] = useState("");
 
   useEffect(() => {
-    const code = params.get("code");
-    if (!code) {
-      router.replace("/");
-      return;
+    let cancelled = false;
+
+    async function run() {
+      setErr("");
+
+      try {
+        // If we already have a session, just continue
+        const { data: s } = await supabase.auth.getSession();
+        if (s?.session) {
+          const next = params.get("next") || "/";
+          if (!cancelled) router.replace(next);
+          return;
+        }
+
+        // Handle the OAuth/code callback (Supabase will read from the URL)
+        const { error } = await supabase.auth.exchangeCodeForSession();
+        if (error) throw error;
+
+        const next = params.get("next") || "/";
+        if (!cancelled) router.replace(next);
+      } catch (e) {
+        if (!cancelled) setErr(e?.message || "Sign in failed.");
+      }
     }
 
-    (async () => {
-      const { error } = await supabase.auth.exchangeCodeForSession({ code });
-      if (error) {
-        console.error("Auth exchange error:", error);
-      }
-      router.replace("/");
-    })();
+    run();
+    return () => {
+      cancelled = true;
+    };
   }, [params, router]);
 
   return (
-    <div className="min-h-[60vh] flex items-center justify-center text-gray-700">
-      Finishing sign-in…
+    <div>
+      <h1 className="text-2xl font-extrabold text-cyan-500 tracking-tight">
+        Signing you in…
+      </h1>
+      {err && <p className="mt-3 text-sm text-red-600">{err}</p>}
     </div>
   );
 }
