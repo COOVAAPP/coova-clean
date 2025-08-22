@@ -1,25 +1,18 @@
-// app/not-found.jsx
-import Link from "next/link";
-
 export default function NotFound() {
   return (
-    <main className="min-h-screen">
-      <div className="max-w-6xl mx-auto px-4 py-16 text-center">
-        <h1 className="text-3xl font-extrabold tracking-tight text-cyan-500">
-          Page Not Found
-        </h1>
-        <p className="mt-4 text-gray-600">
-          Sorry, the page you are looking for does not exist.
-        </p>
-        <div className="mt-8">
-          <Link
-            href="/"
-            className="inline-block rounded-md bg-cyan-500 px-5 py-2 font-semibold text-white hover:bg-cyan-600"
-          >
-            Go back home
-          </Link>
-        </div>
-      </div>
+    <main className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4">
+      <h1 className="text-6xl font-bold text-cyan-500">404</h1>
+      <h2 className="mt-4 text-2xl font-semibold text-gray-800">Page Not Found</h2>
+      <p className="mt-2 text-gray-600 text-center max-w-md">
+        Sorry, we could not find the page you are looking for.  
+        It might have been moved, or it never existed.
+      </p>
+      <a
+        href="/"
+        className="mt-6 rounded-md bg-cyan-500 px-6 py-3 text-white font-semibold hover:bg-black"
+      >
+        Go Home
+      </a>
     </main>
   );
 }
