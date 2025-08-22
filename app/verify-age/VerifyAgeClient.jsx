@@ -1,3 +1,4 @@
+// app/verify-age/VerifyAgeClient.jsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -11,43 +12,92 @@ export default function VerifyAgeClient() {
   const [checked, setChecked] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const [sessionReady, setSessionReady] = useState(false);
+  const [userId, setUserId] = useState(null);
 
+  // where to go after success
   const next = params?.get("next") || "/";
 
-  const onConfirm = async () => {
+  // load session on mount (client-side only)
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+      const uid = data?.session?.user?.id ?? null;
+      setUserId(uid);
+      setSessionReady(true);
+    })();
+
+    // react on auth changes (e.g., user signed in from modal)
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+      setUserId(s?.user?.id ?? null);
+    });
+
+    return () => {
+      mounted = false;
+      sub?.subscription?.unsubscribe?.();
+    };
+  }, []);
+
+  async function onConfirm() {
     setErr("");
+
     if (!checked) {
       setErr("You must confirm you are 18+ to continue.");
       return;
     }
+
     setSaving(true);
     try {
-      const { data } = await supabase.auth.getSession();
-      const uid = data?.session?.user?.id;
-      if (!uid) {
-        router.replace(`/auth?next=${encodeURIComponent(`/verify-age?next=${next}`)}`);
+      // if not logged in, send them to login with a return trip back here
+      if (!userId) {
+        const returnTo = `/verify-age?next=${encodeURIComponent(next)}`;
+        router.replace(`/login?next=${encodeURIComponent(returnTo)}`);
         return;
       }
-      const { error } = await supabase.from("profiles").update({ is_adult: true }).eq("id", uid);
+
+      // mark profile as adult
+      const { error } = await supabase
+        .from("profiles")
+        .update({ is_adult: true, updated_at: new Date().toISOString() })
+        .eq("id", userId);
+
       if (error) throw error;
 
+      // done — go to intended page
       router.push(next);
     } catch (e) {
-      setErr("Something went wrong.");
+      console.error(e);
+      setErr("Something went wrong. Please try again.");
     } finally {
       setSaving(false);
     }
-  };
+  }
 
   return (
-    <main className="max-w-xl mx-auto px-4 py-10">
-      <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">Age Verification</h1>
-      <p className="mt-4 text-gray-600">You must be 18 years or older to create a listing or book a space.</p>
+    <div className="max-w-xl mx-auto px-4 py-10">
+      <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">
+        Age verification
+      </h1>
+      <p className="mt-4 text-gray-600">
+        You must be 18 years or older to create a listing or book a space.
+      </p>
+
+      {/* status about login */}
+      {sessionReady && !userId && (
+        <div className="mt-4 text-sm text-gray-600">
+          You’re not signed in. You can still confirm, and we’ll first take you
+          to sign in, then return you here automatically.
+        </div>
+      )}
 
       <div className="mt-6 flex items-start gap-3 rounded-md border border-gray-200 bg-white p-4">
         <input
           id="adult"
           type="checkbox"
+          className="mt-1 h-5 w-5 rounded border-gray-300 text-cyan-600 focus:ring-cyan-600"
           checked={checked}
           onChange={(e) => setChecked(e.target.checked)}
         />
@@ -67,6 +117,6 @@ export default function VerifyAgeClient() {
           {saving ? "Saving..." : "Continue"}
         </button>
       </div>
-    </main>
+    </div>
   );
 }

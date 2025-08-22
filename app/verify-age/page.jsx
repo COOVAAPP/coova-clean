@@ -1,15 +1,23 @@
-// app/error.js
-'use client';
-export default function GlobalError({ error, reset }) {
+// app/verify-age/page.jsx
+export const dynamic = "force-dynamic";   // don't cache
+export const revalidate = 0;              // also no ISR
+export const fetchCache = "force-no-store";
+
+import { Suspense } from "react";
+import VerifyAgeClient from "./VerifyAgeClient";
+
+export default function VerifyAgePage() {
   return (
-    <html>
-      <body className="p-8">
-        <h1 className="text-2xl font-bold">Something went wrong</h1>
-        <p className="mt-2 text-sm text-gray-600">{String(error?.message ?? '')}</p>
-        <button className="mt-4 rounded bg-cyan-600 px-3 py-2 text-white" onClick={() => reset()}>
-          Try again
-        </button>
-      </body>
-    </html>
+    <main className="min-h-screen">
+      <Suspense
+        fallback={
+          <div className="max-w-6xl mx-auto px-4 py-10">
+            <p className="text-gray-600">Loading...</p>
+          </div>
+        }
+      >
+        <VerifyAgeClient />
+      </Suspense>
+    </main>
   );
 }
