@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
-import NotFoundInner from "./NotFoundInner";
+import NotFoundInner from "./NotFoundInner"; // same folder as this file
 
 export default function NotFound() {
   return (
