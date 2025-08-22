@@ -1,8 +1,8 @@
 // app/HomeClient.jsx
 "use client";
 
-import RotatingHero from "../components/RotatingHero";
 import Link from "next/link";
+import SafeHero from "../components/SafeHero";
 
 export default function HomeClient() {
   return (
