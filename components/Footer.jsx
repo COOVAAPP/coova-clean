@@ -15,24 +15,24 @@ export default function Footer() {
             </p>
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-gray-900">Explore</h4>
+            <h4 className="text-sm font-bold text-white">Explore</h4>
             <ul className="mt-3 space-y-2 text-sm">
-              <li><Link href="/browse" className="hover:text-cyan-500">Browse</Link></li>
-              <li><Link href="/browse?type=pools" className="hover:text-cyan-500">Pools & Venues</Link></li>
-              <li><Link href="/browse?type=cars" className="hover:text-cyan-500">Luxury Cars</Link></li>
-              <li><Link href="/browse?type=spaces" className="hover:text-cyan-500">Unique Spaces</Link></li>
+              <li><Link href="/browse" className="hover:text-white">Browse</Link></li>
+              <li><Link href="/browse?type=pools" className="hover:text-white">Pools & Venues</Link></li>
+              <li><Link href="/browse?type=cars" className="hover:text-white">Luxury Cars</Link></li>
+              <li><Link href="/browse?type=spaces" className="hover:text-white">Unique Spaces</Link></li>
             </ul>
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-gray-900">Host</h4>
+            <h4 className="text-sm font-bold text-white">Host</h4>
             <ul className="mt-3 space-y-2 text-sm">
-              <li><Link href="/list" className="hover:text-cyan-500">List your space</Link></li>
-              <li><Link href="/dashboard" className="hover:text-cyan-500">Dashboard</Link></li>
-              <li><Link href="/profile" className="hover:text-cyan-500">Profile</Link></li>
+              <li><Link href="/list" className="hover:text-white">List your space</Link></li>
+              <li><Link href="/dashboard" className="hover:text-white">Dashboard</Link></li>
+              <li><Link href="/profile" className="hover:text-white">Profile</Link></li>
             </ul>
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-gray-900">Company</h4>
+            <h4 className="text-sm font-bold text-white">Company</h4>
             <ul className="mt-3 space-y-2 text-sm">50
               <li><Link href="/about" className="hover:text-white">About</Link></li>
               <li><Link href="/support" className="hover:text-white">Support</Link></li>
