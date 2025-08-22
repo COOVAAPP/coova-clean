@@ -16,13 +16,10 @@ export default function AuthCallback() {
 
     (async () => {
       try {
-        // Exchange the auth code from the URL for a session (works for OAuth & magic link)
         const { error } = await supabase.auth.exchangeCodeForSession();
         if (error) throw error;
 
-        // Where to go next
         const next = qs.get("next") || "/";
-        // Clean up any ?auth=1 flag if it stuck around
         const url = new URL(window.location.href);
         url.searchParams.delete("auth");
 
