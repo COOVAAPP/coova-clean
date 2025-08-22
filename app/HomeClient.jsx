@@ -2,12 +2,12 @@
 "use client";
 
 import Link from "next/link";
-import SafeHero from "../components/SafeHero"; // <- using the hero that was working for you
+import SafeHero from "../components/SafeHero"; // <- change to "./components/SafeHero" if your components folder is inside /app
 
 export default function HomeClient() {
   return (
     <main className="min-h-screen flex flex-col gap-12">
-      {/* HERO (full bleed) */}
+      {/* HERO (full bleed, rotating, cyan accents) */}
       <SafeHero />
 
       {/* CATEGORY CARDS */}
@@ -24,7 +24,7 @@ export default function HomeClient() {
             aria-label="Pools & Venues"
           >
             <img
-              src="https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/Public/categories/pools.jpg"
+              src="https://opnqqloemtaaowfttaf.s.supabase.co/storage/v1/object/public/Public/categories/pools.jpg"
               alt="Pools & Venues"
               className="h-[240px] w-[320px] object-cover transition-transform duration-500 group-hover:scale-105"
             />
@@ -41,7 +41,7 @@ export default function HomeClient() {
             aria-label="Luxury Cars"
           >
             <img
-              src="https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/Public/categories/cars.jpg"
+              src="https://opnqqloemtaaowfttaf.s.supabase.co/storage/v1/object/public/Public/categories/cars.jpg"
               alt="Luxury Cars"
               className="h-[240px] w-[320px] object-cover transition-transform duration-500 group-hover:scale-105"
             />
@@ -58,7 +58,7 @@ export default function HomeClient() {
             aria-label="Unique Spaces"
           >
             <img
-              src="https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/Public/categories/spaces.jpg"
+              src="https://opnqqloemtaaowfttaf.s.supabase.co/storage/v1/object/public/Public/categories/spaces.jpg"
               alt="Unique Spaces"
               className="h-[240px] w-[320px] object-cover transition-transform duration-500 group-hover:scale-105"
             />
@@ -72,17 +72,21 @@ export default function HomeClient() {
 
       {/* CTA */}
       <section className="bg-brand-600 py-12 text-cyan-50">
-        <h2 className="text-center text-3xl font-bold">Become a Host and Earn with Your Space</h2>
+        <h2 className="text-center text-3xl font-bold">
+          Become a Host and Earn with Your Space
+        </h2>
         <p className="mx-auto mt-2 max-w-2xl text-center">
-          List your pool, backyard, car, or creative venue space and start generating income today.
+          List your pool, backyard, car, or creative venue space and start
+          generating income today.
         </p>
+
         <div className="mt-6 text-center">
-          <Link
+          <a
             href="/list"
             className="inline-block rounded-full bg-white px-6 py-3 font-semibold text-brand-600 shadow hover:bg-gray-100"
           >
             Start Hosting
-          </Link>
+          </a>
         </div>
       </section>
     </main>
