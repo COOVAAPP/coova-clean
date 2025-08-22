@@ -1,28 +1,27 @@
-// components/RotatingHero.jsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 export default function RotatingHero({
-  images = [],
+  images,
   intervalMs = 4000,
-  className = "full-bleed",
+  className = "",
 }) {
-  // Fallback images if none provided (update to your real paths)
-  const fallbacks = useMemo(
+  // Default to your Supabase hero images if none are provided
+  const fallback = useMemo(
     () => [
-      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg1.jpg",
-      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg2.jpg",
-      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg3.jpg",
-      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg4.jpg",
+      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/Public/bg1.jpg",
+      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/Public/bg2.jpg",
+      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/Public/bg3.jpg",
+      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/Public/bg4.jpg",
     ],
     []
   );
 
-  const pics = images.length ? images : fallbacks;
+  const pics = Array.isArray(images) && images.length ? images : fallback;
 
-  // Preload
+  // Preload to avoid flashes
   useEffect(() => {
     pics.forEach((src) => {
       const img = new Image();
@@ -42,67 +41,60 @@ export default function RotatingHero({
     return () => clearInterval(t);
   }, [pics.length, intervalMs]);
 
-  const current = pics[idx];
-  const next = pics[(idx + 1) % pics.length];
-
   return (
     <section
       className={`relative w-full overflow-hidden ${className}`}
       onMouseEnter={() => (hoverRef.current = true)}
       onMouseLeave={() => (hoverRef.current = false)}
+      aria-label="Welcome to COOVA"
     >
-      {/* Two layers for crossfade */}
-      <div
-        className="absolute inset-0 transition-opacity duration-700"
-        style={{
-          backgroundImage: `url('${current}')`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          opacity: 1,
-        }}
-      />
-      <div
-        className="absolute inset-0 transition-opacity duration-700 opacity-0"
-        key={next} // force repaint when "next" changes
-        style={{
-          backgroundImage: `url('${next}')`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      />
+      {/* full-bleed image layer */}
+      <div className="relative w-full">
+        <div className="relative overflow-hidden rounded-2xl bg-gray-100">
+          {pics.map((src, i) => (
+            <img
+              key={src}
+              src={src}
+              alt=""
+              className={`h-[420px] w-full object-cover transition-opacity duration-700 ${
+                i === idx ? "opacity-100" : "opacity-0"
+              }`}
+              fetchPriority={i === idx ? "high" : "auto"}
+              decoding="async"
+            />
+          ))}
+          {/* gradient overlay for text legibility */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/0" />
+        </div>
 
-      {/* Darken for text legibility */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/20 to-black/0" />
+        {/* headline + buttons */}
+        <div className="absolute inset-0 flex items-center">
+          <div className="container-page">
+            <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white">
+              Welcome to <span className="text-cyan-500">COOVA</span>
+            </h1>
+            <p className="mt-2 max-w-2xl text-white/90">
+              Discover luxury pools, unique venues, and cars — or become a host and
+              earn with your space.
+            </p>
 
-      {/* Content */}
-      <div className="relative mx-auto max-w-6xl px-6 lg:px-8 py-20 lg:py-32 text-white">
-        <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl">
-          Welcome to <span className="text-cyan-500">COOVA</span>
-        </h1>
-        <p className="mt-6 text-lg leading-8 text-white/90 max-w-2xl">
-          Discover luxury pools, unique venues, and cars — or become a host and
-          earn with your space.
-        </p>
-
-        {/* CTA buttons (outlined, cyan text) */}
-        <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center sm:justify-start">
-          <Link
-            href="/browse"
-            className="inline-flex items-center rounded-full border-2 border-cyan-500 px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-cyan-50"
-          >
-            Explore Now
-          </Link>
-          <Link
-            href="/list"
-            className="inline-flex items-center rounded-full border-2 border-cyan-500 px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-cyan-50"
-          >
-            List Your Space
-          </Link>
+            <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
+              <Link
+                href="/browse"
+                className="inline-flex items-center rounded-full border-2 border-cyan-500 bg-white px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-cyan-50"
+              >
+                Explore Now
+              </Link>
+              <Link
+                href="/list"
+                className="inline-flex items-center rounded-full border-2 border-cyan-500 bg-white px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-cyan-50"
+              >
+                List Your Space
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
-
-      {/* Height controller */}
-      <div className="invisible h-[420px] sm:h-[480px]" />
     </section>
   );
 }
