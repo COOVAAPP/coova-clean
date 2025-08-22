@@ -1,6 +1,6 @@
 "use client";
 
-import RotatingHero from "@components/RotatingHero";
+import RotatingHero from "../components/RotatingHero";
 
 export default function HomeClient() {
   return (
