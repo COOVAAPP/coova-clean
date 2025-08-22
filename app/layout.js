@@ -7,7 +7,6 @@ import Footer from "@/components/Footer";
 import AuthModal from "@/components/AuthModal";
 import "./globals.css";
 
-export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
 export default function RootLayout({ children }) {

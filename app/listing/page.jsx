@@ -5,7 +5,6 @@ import { Suspense } from "react";
 import ListingBrowseClient from "./ListingBrowseClient";
 
 export const dynamic = "force-dynamic";   // don't prerender; page is URL-state-driven
-export const revalidate = 0;              // disable caching
 
 export default function ListingPage() {
   return (
