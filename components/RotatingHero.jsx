@@ -1,26 +1,17 @@
+// components/RotatingHero.jsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 
-/**
- * RotatingHero
- * - Crossfades through an array of images
- * - Pauses on hover
- * - Preloads images to avoid flashes
- */
 export default function RotatingHero({
   images = [],
   intervalMs = 4000,
   className = "full-bleed",
-  title = "Welcome to COOVA",
-  subtitle = "Discover luxury pools, unique venues, and cars — or become a host and earn with your space.",
-  ctaPrimary = { href: "/browse", label: "Explore Now" },
-  ctaSecondary = { href: "/list", label: "List Your Space" },
 }) {
-  // Fallback images if none passed in
-  const fallback = useMemo(
+  // Fallback images if none provided (update to your real paths)
+  const fallbacks = useMemo(
     () => [
-      // Replace these with your Supabase public URLs if you have different ones
       "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg1.jpg",
       "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg2.jpg",
       "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg3.jpg",
@@ -29,7 +20,7 @@ export default function RotatingHero({
     []
   );
 
-  const pics = images.length ? images : fallback;
+  const pics = images.length ? images : fallbacks;
 
   // Preload
   useEffect(() => {
@@ -51,58 +42,67 @@ export default function RotatingHero({
     return () => clearInterval(t);
   }, [pics.length, intervalMs]);
 
+  const current = pics[idx];
+  const next = pics[(idx + 1) % pics.length];
+
   return (
     <section
-      className={`relative overflow-hidden rounded-2xl bg-brand-600 text-white ${className}`}
+      className={`relative w-full overflow-hidden ${className}`}
       onMouseEnter={() => (hoverRef.current = true)}
       onMouseLeave={() => (hoverRef.current = false)}
-      aria-label="Hero"
     >
-      {/* Images (stacked & crossfading) */}
-      <div className="relative h-[340px] sm:h-[420px] lg:h-[480px]">
-        {pics.map((src, i) => (
-          <img
-            key={src}
-            src={src}
-            alt=""
-            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${
-              i === idx ? "opacity-100" : "opacity-0"
-            }`}
-            fetchpriority={i === 0 ? "high" : "auto"}
-          />
-        ))}
+      {/* Two layers for crossfade */}
+      <div
+        className="absolute inset-0 transition-opacity duration-700"
+        style={{
+          backgroundImage: `url('${current}')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          opacity: 1,
+        }}
+      />
+      <div
+        className="absolute inset-0 transition-opacity duration-700 opacity-0"
+        key={next} // force repaint when "next" changes
+        style={{
+          backgroundImage: `url('${next}')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      />
 
-        {/* Overlay */}
-        <div className="absolute inset-0 bg-black/35" />
+      {/* Darken for text legibility */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/20 to-black/0" />
 
-        {/* Copy + CTAs */}
-        <div className="relative z-10 mx-auto flex h-full max-w-6xl items-center px-4">
-          <div className="max-w-2xl">
-            <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">
-              {title}
-            </h1>
-            <p className="mt-3 text-white/90">{subtitle}</p>
+      {/* Content */}
+      <div className="relative mx-auto max-w-6xl px-6 lg:px-8 py-20 lg:py-32 text-white">
+        <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl">
+          Welcome to <span className="text-cyan-500">COOVA</span>
+        </h1>
+        <p className="mt-6 text-lg leading-8 text-white/90 max-w-2xl">
+          Discover luxury pools, unique venues, and cars — or become a host and
+          earn with your space.
+        </p>
 
-            <div className="mt-6 flex gap-3">
-              <a
-                href={ctaPrimary.href}
-                className="rounded-full bg-white px-5 py-2 font-semibold text-brand-600 hover:bg-gray-100"
-              >
-                {ctaPrimary.label}
-              </a>
-              <a
-                href={ctaSecondary.href}
-                className="rounded-full border border-white/70 px-5 py-2 font-semibold text-white hover:bg-white/10"
-              >
-                {ctaSecondary.label}
-              </a>
-            </div>
-          </div>
+        {/* CTA buttons (outlined, cyan text) */}
+        <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center sm:justify-start">
+          <Link
+            href="/browse"
+            className="inline-flex items-center rounded-full border-2 border-cyan-500 px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-cyan-50"
+          >
+            Explore Now
+          </Link>
+          <Link
+            href="/list"
+            className="inline-flex items-center rounded-full border-2 border-cyan-500 px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-cyan-50"
+          >
+            List Your Space
+          </Link>
         </div>
-
-        {/* Soft bottom fade so the next section feels connected */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-brand-600/40 to-transparent" />
       </div>
+
+      {/* Height controller */}
+      <div className="invisible h-[420px] sm:h-[480px]" />
     </section>
   );
 }
