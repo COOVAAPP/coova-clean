@@ -1,11 +1,29 @@
 // app/verify-age/page.jsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
+// Prevent static prerendering & caching for this page
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default function VerifyAgePage() {
+  // Wrap the hook-using inner component in Suspense to satisfy Next’s warning
+  return (
+    <Suspense fallback={
+      <main className="max-w-xl mx-auto px-4 py-10">
+        <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">Age verification</h1>
+        <p className="mt-4 text-gray-600">Loading…</p>
+      </main>
+    }>
+      <VerifyAgeInner />
+    </Suspense>
+  );
+}
+
+function VerifyAgeInner() {
   const router = useRouter();
   const params = useSearchParams();
 
@@ -15,20 +33,38 @@ export default function VerifyAgePage() {
 
   const next = params.get("next") || "/";
 
+  // If not logged in, open auth modal and send them back here after login
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (!data?.session) {
+        // Trigger your modal (?auth=1) and return here on success
+        const ret = `/verify-age?next=${encodeURIComponent(next)}`;
+        router.replace(`/?auth=1&next=${encodeURIComponent(ret)}`);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router, next]);
+
   const onConfirm = async () => {
     setErr("");
     if (!checked) {
       setErr("You must confirm you are 18+ to continue.");
       return;
     }
+
     setSaving(true);
     try {
-      // Ensure logged-in
       const { data } = await supabase.auth.getSession();
       const uid = data?.session?.user?.id;
       if (!uid) {
-        // send back to auth with next returning to verify page
-        router.replace(`/?auth=1&next=${encodeURIComponent(`/verify-age?next=${encodeURIComponent(next)}`)}`);
+        // If somehow logged-out now, bounce to login modal and return here
+        const ret = `/verify-age?next=${encodeURIComponent(next)}`;
+        router.replace(`/?auth=1&next=${encodeURIComponent(ret)}`);
         return;
       }
 
@@ -39,9 +75,10 @@ export default function VerifyAgePage() {
 
       if (error) throw error;
 
+      // Success → go to intended page
       router.push(next);
     } catch (e) {
-      setErr(e.message || "Something went wrong.");
+      setErr(e?.message || "Something went wrong.");
     } finally {
       setSaving(false);
     }
@@ -49,9 +86,7 @@ export default function VerifyAgePage() {
 
   return (
     <main className="max-w-xl mx-auto px-4 py-10">
-      <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">
-        Age verification
-      </h1>
+      <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">Age verification</h1>
       <p className="mt-4 text-gray-600">
         You must be 18 years or older to create a listing or book a space.
       </p>
@@ -69,9 +104,7 @@ export default function VerifyAgePage() {
         </label>
       </div>
 
-      {err && (
-        <p className="mt-3 text-sm text-red-600">{err}</p>
-      )}
+      {err && <p className="mt-3 text-sm text-red-600">{err}</p>}
 
       <div className="mt-6">
         <button
