@@ -51,7 +51,7 @@ export default function HomeClient() {
         </div>
       </section>
 
-      <section className="bg-brand-600 py-12 text-cyan-50">
+      <section className="bg-brand-600 py-12 text-cyan-500">
         <h2 className="text-center text-3xl font-bold">Become a Host and Earn with Your Space</h2>
         <p className="mx-auto mt-3 max-w-2xl text-center">
           List your pool, backyard, car, or creative venue space and start generating income today.
