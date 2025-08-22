@@ -77,9 +77,9 @@ export default function HomeClient() {
       </section>
 
       {/* CTA */}
-      <section className="bg-brand-600 py-12 text-cyan-50">
+      <section className="bg-brand-600 py-12 text-cyan-500">
         <h2 className="text-center text-3xl font-bold">Become a Host and Earn with Your Space</h2>
-        <p className="mx-auto mt-2 max-w-2xl text-center text-white/90">
+        <p className="mx-auto mt-2 max-w-2xl text-center text-cyan-500">
           List your pool, backyard, car, or creative venue space and start generating income today.
         </p>
         <div className="mt-6 text-center">
