@@ -71,7 +71,7 @@ export default function HomeClient() {
       </section>
 
       {/* CTA */}
-      <section className="bg-brand-600 py-12 text-cyan-50">
+      <section className="bg-brand-600 py-12 text-cyan-500">
         <h2 className="text-center text-3xl font-bold">
           Become a Host and Earn with Your Space
         </h2>
