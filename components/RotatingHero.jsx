@@ -1,44 +1,106 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-const IMAGES = [
-  "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg1.jpg",
-  "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg2.jpg",
-  "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg3.jpg",
-];
+/**
+ * RotatingHero
+ * - Crossfades through an array of images
+ * - Pauses on hover
+ * - Preloads images to avoid flashes
+ */
+export default function RotatingHero({
+  images = [],
+  intervalMs = 4000,
+  className = "",
+  title = "Welcome to COOVA",
+  subtitle = "Discover luxury pools, unique venues, and cars — or become a host and earn with your space.",
+  ctaPrimary = { href: "/browse", label: "Explore Now" },
+  ctaSecondary = { href: "/list", label: "List Your Space" },
+}) {
+  // Fallback images if none passed in
+  const fallback = useMemo(
+    () => [
+      // Replace these with your Supabase public URLs if you have different ones
+      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/hero/hero1.jpg",
+      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/hero/hero2.jpg",
+      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/hero/hero3.jpg",
+    ],
+    []
+  );
 
-export default function RotatingHero() {
-  const [index, setIndex] = useState(0);
+  const pics = images.length ? images : fallback;
+
+  // Preload
+  useEffect(() => {
+    pics.forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
+  }, [pics]);
+
+  const [idx, setIdx] = useState(0);
+  const hoverRef = useRef(false);
 
   useEffect(() => {
-    const id = setInterval(() => {
-      setIndex((prev) => (prev + 1) % IMAGES.length);
-    }, 6000);
-    return () => clearInterval(id);
-  }, []);
-
-  const current = IMAGES[index];
+    const t = setInterval(() => {
+      if (!hoverRef.current) {
+        setIdx((i) => (i + 1) % pics.length);
+      }
+    }, intervalMs);
+    return () => clearInterval(t);
+  }, [pics.length, intervalMs]);
 
   return (
-    <section className="relative h-[420px] w-full overflow-hidden">
-      {/* Background */}
-      <div
-        className="absolute inset-0 bg-center bg-cover transition-opacity duration-700"
-        style={{ backgroundImage: `url(${current})` }}
-      />
-      <div className="absolute inset-0 bg-black/40" />
+    <section
+      className={`relative overflow-hidden rounded-2xl bg-brand-600 text-white ${className}`}
+      onMouseEnter={() => (hoverRef.current = true)}
+      onMouseLeave={() => (hoverRef.current = false)}
+      aria-label="Hero"
+    >
+      {/* Images (stacked & crossfading) */}
+      <div className="relative h-[340px] sm:h-[420px] lg:h-[480px]">
+        {pics.map((src, i) => (
+          <img
+            key={src}
+            src={src}
+            alt=""
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${
+              i === idx ? "opacity-100" : "opacity-0"
+            }`}
+            fetchpriority={i === 0 ? "high" : "auto"}
+          />
+        ))}
 
-      {/* Content */}
-      <div className="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 h-full flex items-center">
-        <div className="text-white max-w-xl">
-          <h1 className="text-3xl sm:text-4xl font-bold">
-            Rent Luxury. Share Good Vibes.
-          </h1>
-          <p className="mt-3 text-white/90">
-            Spaces, cars, and venues—book by the hour. Host your event or find your next creative location.
-          </p>
+        {/* Overlay */}
+        <div className="absolute inset-0 bg-black/35" />
+
+        {/* Copy + CTAs */}
+        <div className="relative z-10 mx-auto flex h-full max-w-6xl items-center px-4">
+          <div className="max-w-2xl">
+            <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">
+              {title}
+            </h1>
+            <p className="mt-3 text-white/90">{subtitle}</p>
+
+            <div className="mt-6 flex gap-3">
+              <a
+                href={ctaPrimary.href}
+                className="rounded-full bg-white px-5 py-2 font-semibold text-brand-600 hover:bg-gray-100"
+              >
+                {ctaPrimary.label}
+              </a>
+              <a
+                href={ctaSecondary.href}
+                className="rounded-full border border-white/70 px-5 py-2 font-semibold text-white hover:bg-white/10"
+              >
+                {ctaSecondary.label}
+              </a>
+            </div>
+          </div>
         </div>
+
+        {/* Soft bottom fade so the next section feels connected */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-brand-600/40 to-transparent" />
       </div>
     </section>
   );
