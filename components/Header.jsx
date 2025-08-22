@@ -53,7 +53,7 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-40 border-b bg-cyan-500 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <Link href="/" className="text-2xl font-extrabold text-white">
+        <Link href="/" className="text-4xl font-extrabold text-white">
           COOVA
         </Link>
 
