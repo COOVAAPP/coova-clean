@@ -1,19 +1,38 @@
 // app/verify-age/VerifyAgeClient.jsx
 "use client";
 
-import { useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import supabase from "@/lib/supabaseClient";
 
-export default function VerifyAgeClient() {
+export default function VerifyAgeClient({ next = "/" }) {
   const router = useRouter();
-  const params = useSearchParams();
 
-  const [checked, setChecked] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState("");
+  const [checked, setChecked]   = useState(false);
+  const [saving, setSaving]     = useState(false);
+  const [err, setErr]           = useState("");
 
-  const next = params.get("next") || "/";
+  // Optional: if already verified, bounce immediately
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { data: sessionRes } = await supabase.auth.getSession();
+      const uid = sessionRes?.session?.user?.id;
+      if (!uid) return; // let onConfirm handle login redirect
+
+      // If you keep is_adult on the profiles table:
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_adult")
+        .eq("id", uid)
+        .maybeSingle();
+
+      if (mounted && profile?.is_adult === true) {
+        router.replace(next);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [router, next]);
 
   const onConfirm = async () => {
     setErr("");
@@ -24,21 +43,25 @@ export default function VerifyAgeClient() {
 
     setSaving(true);
     try {
-      const { data } = await supabase.auth.getSession();
-      const uid = data?.session?.user?.id;
+      // Must be logged in to mark verified
+      const { data: sessionRes } = await supabase.auth.getSession();
+      const uid = sessionRes?.session?.user?.id;
+
       if (!uid) {
-        router.replace(`/login?next=${encodeURIComponent("/verify-age?next=" + next)}`);
+        // Send to your login page, then back here, then forward to next
+        const returnTo = `/verify-age?next=${encodeURIComponent(next)}`;
+        router.replace(`/login?next=${encodeURIComponent(returnTo)}`);
         return;
       }
 
       const { error } = await supabase
         .from("profiles")
-        .update({ is_adult: true })
+        .update({ is_adult: true, updated_at: new Date().toISOString() })
         .eq("id", uid);
 
       if (error) throw error;
 
-      router.push(next);
+      router.replace(next);
     } catch (e) {
       setErr(e?.message || "Something went wrong.");
     } finally {
@@ -47,7 +70,10 @@ export default function VerifyAgeClient() {
   };
 
   return (
-    <div className="mt-6">
+    <main className="max-w-xl mx-auto px-4 py-10">
+      <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">
+        Age verification
+      </h1>
       <p className="mt-4 text-gray-600">
         You must be 18 years or older to create a listing or book a space.
       </p>
@@ -60,7 +86,7 @@ export default function VerifyAgeClient() {
           checked={checked}
           onChange={(e) => setChecked(e.target.checked)}
         />
-        <label htmlFor="adult" className="text-sm text-gray-800">
+        <label htmlFor="adult" className="text-sm text-gray-800 select-none">
           I confirm that I am 18 years of age or older.
         </label>
       </div>
@@ -76,6 +102,6 @@ export default function VerifyAgeClient() {
           {saving ? "Saving..." : "Continue"}
         </button>
       </div>
-    </div>
+    </main>
   );
 }
