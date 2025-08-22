@@ -11,9 +11,9 @@ export default function HomeClient() {
         // Optional: pass your own images; otherwise component uses defaults
         images={[
           // Put your actual Supabase public hero image URLs here
-          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/hero/hero1.jpg",
-          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/hero/hero2.jpg",
-          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/hero/hero3.jpg",
+          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg1.jpg",
+          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg2.jpg",
+          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg3.jpg",
         ]}
       />
 
