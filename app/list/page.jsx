@@ -10,60 +10,22 @@ export default function ListGatePage() {
 
   useEffect(() => {
     let mounted = true;
-
-    async function go() {
+    (async () => {
       const { data } = await supabase.auth.getSession();
       if (!mounted) return;
-
-      const session = data?.session;
-
-      // Not logged in → open modal on home then proceed to /list/create
-      if (!session) {
-        router.replace(`/?auth=1&next=${encodeURIComponent("/list/create")}`);
-        return;
+      if (!data?.session) {
+        const qs = new URLSearchParams({ auth: "1", mode: "signup", next: "/list/create" });
+        router.replace(`/?${qs.toString()}`);
+      } else {
+        router.replace("/list/create");
       }
-
-      // Check profile.is_adult
-      const uid = session.user.id;
-      const { data: profile, error: pErr } = await supabase
-        .from("profiles")
-        .select("is_adult")
-        .eq("id", uid)
-        .single();
-
-      if (pErr) {
-        // if no profile row yet, you might create it elsewhere
-        router.replace(`/verify-age?next=${encodeURIComponent("/list/create")}`);
-        return;
-      }
-
-      if (!profile?.is_adult) {
-        router.replace(`/verify-age?next=${encodeURIComponent("/list/create")}`);
-        return;
-      }
-
-      // all good → go to create
-      router.replace("/list/create");
-    }
-
-    go();
-
-    // if they log in/out while here
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-      if (!mounted) return;
-      if (!s) router.replace(`/?auth=1&next=${encodeURIComponent("/list/create")}`);
-    });
-
-    return () => {
-      mounted = false;
-      sub.subscription.unsubscribe();
-    };
+    })();
+    return () => { mounted = false; };
   }, [router]);
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-10">
-      <h1 className="text-2xl font-extrabold">Loading…</h1>
-      <p className="mt-4 text-sm text-gray-500">Checking your account…</p>
+    <main className="container-page py-10">
+      <p className="text-center text-gray-600">Loading…</p>
     </main>
   );
 }

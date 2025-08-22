@@ -1,143 +1,151 @@
 // components/AuthModal.jsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-export default function AuthModal({ forceOpen = false, defaultNext = "/" }) {
+function Field({ id, label, type = "text", value, onChange, autoComplete }) {
+  return (
+    <div>
+      <label htmlFor={id} className="block text-sm font-medium text-gray-700">
+        {label}
+      </label>
+      <input
+        id={id}
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoComplete={autoComplete}
+        className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
+      />
+    </div>
+  );
+}
+
+export default function AuthModal() {
   const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
 
-  const [open, setOpen] = useState(forceOpen || hasAuthQuery());
+  const open = params?.get("auth") === "1";
+  const modeParam = params?.get("mode");
+  const startMode = modeParam === "signup" ? "signup" : "signin";
+  const [mode, setMode] = useState(startMode);
+  const next = params?.get("next") || "/";
+
+  // auth method: "magic" or "password"
+  const [method, setMethod] = useState("magic");
+
+  // form state
   const [email, setEmail] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [toast, setToast] = useState("");
-  const [error, setError] = useState("");
-  const cardRef = useRef(null);
+  const [pw, setPw] = useState("");
+  const [pw2, setPw2] = useState("");
 
-  function getUrl() {
-    return new URL(window.location.href);
-  }
-  function getNextFromUrl() {
-    try {
-      const u = getUrl();
-      return u.searchParams.get("next") || defaultNext;
-    } catch {
-      return defaultNext;
-    }
-  }
-  function setAuthParamsInUrl(nextPath) {
-    const u = getUrl();
-    u.searchParams.set("auth", "1");
-    if (nextPath) u.searchParams.set("next", nextPath);
-    router.replace(u.pathname + "?" + u.searchParams.toString());
-  }
-  function removeAuthFromUrl(keepNext = true) {
-    const u = getUrl();
-    u.searchParams.delete("auth");
-    if (!keepNext) u.searchParams.delete("next");
-    const qs = u.searchParams.toString();
-    router.replace(u.pathname + (qs ? "?" + qs : ""));
-  }
-  function hasAuthQuery() {
-    if (typeof window === "undefined") return false;
-    const u = new URL(window.location.href);
-    return u.searchParams.get("auth") === "1";
-  }
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [msg, setMsg] = useState("");
 
   useEffect(() => {
-    // open on first load if ?auth=1
-    if (hasAuthQuery()) setOpen(true);
+    setMode(modeParam === "signup" ? "signup" : "signin");
+  }, [modeParam]);
 
-    // open on event
-    const onOpen = (e) => {
-      const next = e?.detail?.next || getNextFromUrl();
-      setAuthParamsInUrl(next);
-      setOpen(true);
-    };
-    window.addEventListener("open-auth", onOpen);
-
-    const onPop = () => setOpen(hasAuthQuery());
-    window.addEventListener("popstate", onPop);
-
-    return () => {
-      window.removeEventListener("open-auth", onOpen);
-      window.removeEventListener("popstate", onPop);
-    };
+  // If user becomes logged-in, continue to next
+  useEffect(() => {
+    let mounted = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      if (data?.session) goNext();
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+      if (s) goNext();
+    });
+    return () => sub?.subscription?.unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [next]);
+
+  const goNext = () => {
+    router.replace(next);
+  };
 
   const close = () => {
-    setOpen(false);
-    setToast("");
-    setError("");
-    removeAuthFromUrl(true);
+    const sp = new URLSearchParams(params?.toString() || "");
+    sp.delete("auth");
+    sp.delete("mode");
+    sp.delete("next");
+    const qs = sp.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
   };
 
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "Escape") close();
-    };
-    if (open) window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
-  const onOverlayClick = (e) => {
-    if (e.target === e.currentTarget) close();
+  const switchTab = (m) => {
+    const sp = new URLSearchParams(params?.toString() || "");
+    sp.set("auth", "1");
+    sp.set("mode", m);
+    if (!sp.get("next")) sp.set("next", next);
+    router.replace(`${pathname}?${sp.toString()}`);
   };
 
-  // close + redirect once session exists
-  useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session) {
-        const to = getNextFromUrl();
-        removeAuthFromUrl(false);
-        router.replace(to || "/");
-      }
-    });
-    return () => sub.subscription.unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const title = useMemo(
+    () => (mode === "signup" ? "Create your account" : "Welcome back"),
+    [mode]
+  );
 
-  const signInWithGoogle = async () => {
-    setBusy(true);
-    setError("");
+  const onOAuth = async (provider) => {
+    setErr(""); setMsg(""); setBusy(true);
     try {
-      const next = getNextFromUrl();
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(
-        next
-      )}`;
+      const redirectTo = `${location.origin}/auth/callback`;
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo },
+        provider,
+        options: { redirectTo }
       });
       if (error) throw error;
+      // user will be redirected out and back
     } catch (e) {
-      setError(e?.message || "Could not start Google sign-in.");
+      setErr(e.message || "OAuth failed.");
+    } finally {
       setBusy(false);
     }
   };
 
-  const sendMagicLink = async (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
-    setBusy(true);
-    setError("");
-    setToast("");
+    setErr(""); setMsg(""); setBusy(true);
     try {
-      const next = getNextFromUrl();
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
-            next
-          )}`,
-        },
-      });
-      if (error) throw error;
-      setToast("Check your email for the login link.");
-    } catch (err) {
-      setError(err?.message || "Unable to send magic link.");
+      const redirectTo = `${location.origin}/auth/callback`;
+
+      if (method === "magic") {
+        if (!email) throw new Error("Email is required.");
+        if (mode === "signup") {
+          const { error } = await supabase.auth.signUp({ email, options: { emailRedirectTo: redirectTo }});
+          if (error) throw error;
+          setMsg("Check your email to confirm and finish creating your account.");
+        } else {
+          const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo }});
+          if (error) throw error;
+          setMsg("Check your email for the magic link.");
+        }
+        return;
+      }
+
+      // password method
+      if (!email || !pw) throw new Error("Email and password are required.");
+      if (mode === "signup") {
+        if (pw.length < 6) throw new Error("Password must be at least 6 characters.");
+        if (pw !== pw2) throw new Error("Passwords do not match.");
+        const { error } = await supabase.auth.signUp({
+          email,
+          password: pw,
+          options: { emailRedirectTo: redirectTo },
+        });
+        if (error) throw error;
+        setMsg("Account created. Check your email to confirm.");
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
+        if (error) throw error;
+        // signed in → onAuthStateChange will route to next
+      }
+    } catch (e2) {
+      setErr(e2.message || "Something went wrong.");
     } finally {
       setBusy(false);
     }
@@ -147,34 +155,83 @@ export default function AuthModal({ forceOpen = false, defaultNext = "/" }) {
 
   return (
     <div
-      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 p-4"
-      onClick={onOverlayClick}
-      aria-modal="true"
+      aria-modal
       role="dialog"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"
+      onClick={close}
     >
-      <div ref={cardRef} className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+      <div
+        className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">Sign in to COOVA</h2>
+          <h2 className="text-xl font-extrabold text-gray-900">{title}</h2>
           <button
             onClick={close}
-            className="rounded px-2 py-1 text-sm hover:bg-gray-100"
+            className="rounded-md px-2 py-1 text-sm text-gray-500 hover:bg-gray-100"
             aria-label="Close"
           >
             ✕
           </button>
         </div>
 
-        <p className="mt-1 text-sm text-gray-500">
-          You’ll be redirected to <span className="font-medium">{getNextFromUrl()}</span> after sign-in.
-        </p>
+        {/* Tabs */}
+        <div className="mt-4 flex gap-2">
+          <button
+            className={`rounded-md px-3 py-1 text-sm font-semibold ${
+              mode === "signin" ? "bg-cyan-500 text-white" : "bg-gray-100 text-gray-700"
+            }`}
+            onClick={() => switchTab("signin")}
+          >
+            Sign in
+          </button>
+          <button
+            className={`rounded-md px-3 py-1 text-sm font-semibold ${
+              mode === "signup" ? "bg-cyan-500 text-white" : "bg-gray-100 text-gray-700"
+            }`}
+            onClick={() => switchTab("signup")}
+          >
+            Sign up
+          </button>
+        </div>
 
-        <button
-          onClick={signInWithGoogle}
-          disabled={busy}
-          className="mt-4 w-full rounded-md bg-cyan-500 px-4 py-2 font-bold text-white hover:text-black disabled:opacity-60"
-        >
-          Continue with Google
-        </button>
+        {/* Method toggle */}
+        <div className="mt-3 flex gap-2">
+          <button
+            className={`rounded-md px-2 py-1 text-xs ${
+              method === "magic" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"
+            }`}
+            onClick={() => setMethod("magic")}
+          >
+            Magic link
+          </button>
+          <button
+            className={`rounded-md px-2 py-1 text-xs ${
+              method === "password" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"
+            }`}
+            onClick={() => setMethod("password")}
+          >
+            Email + Password
+          </button>
+        </div>
+
+        {/* OAuth */}
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <button
+            disabled={busy}
+            onClick={() => onOAuth("google")}
+            className="rounded-md border px-3 py-2 text-sm font-semibold hover:bg-gray-50 disabled:opacity-50"
+          >
+            Continue with Google
+          </button>
+          <button
+            disabled={busy}
+            onClick={() => onOAuth("apple")}
+            className="rounded-md border px-3 py-2 text-sm font-semibold hover:bg-gray-50 disabled:opacity-50"
+          >
+            Continue with Apple
+          </button>
+        </div>
 
         <div className="my-4 flex items-center gap-3">
           <div className="h-px flex-1 bg-gray-200" />
@@ -182,45 +239,42 @@ export default function AuthModal({ forceOpen = false, defaultNext = "/" }) {
           <div className="h-px flex-1 bg-gray-200" />
         </div>
 
-        <form onSubmit={sendMagicLink} className="space-y-3">
-          <label className="block text-sm font-medium">Email</label>
-          <input
-            type="email"
-            required
-            disabled={busy}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 outline-none focus:border-cyan-500 disabled:opacity-60"
-          />
+        {/* Form */}
+        <form onSubmit={onSubmit} className="space-y-3">
+          <Field id="email" label="Email" type="email" value={email} onChange={setEmail} autoComplete="email" />
+          {method === "password" && (
+            <>
+              <Field id="pw" label="Password" type="password" value={pw} onChange={setPw} autoComplete="current-password" />
+              {mode === "signup" && (
+                <Field id="pw2" label="Confirm password" type="password" value={pw2} onChange={setPw2} autoComplete="new-password" />
+              )}
+            </>
+          )}
+
+          {err && <p className="text-sm text-red-600">{err}</p>}
+          {msg && <p className="text-sm text-green-600">{msg}</p>}
+
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded-md border px-4 py-2 font-bold hover:bg-gray-50 disabled:opacity-60"
+            className="w-full rounded-md bg-cyan-500 px-4 py-2 font-bold text-white hover:bg-cyan-600 disabled:opacity-50"
           >
-            {busy ? "Sending…" : "Send magic link"}
+            {busy
+              ? "Working…"
+              : mode === "signup"
+              ? method === "magic"
+                ? "Send sign-up link"
+                : "Create account"
+              : method === "magic"
+              ? "Send magic link"
+              : "Sign in"}
           </button>
+
+          <p className="text-xs text-gray-500">
+            After completing {mode === "signup" ? "sign up" : "sign in"}, you’ll return to{" "}
+            <span className="font-mono">{next}</span>.
+          </p>
         </form>
-
-        {toast && (
-          <div className="mt-3 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
-            {toast}
-          </div>
-        )}
-        {error && (
-          <div className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        <div className="mt-5 text-center">
-          <button
-            onClick={close}
-            className="text-sm text-gray-500 underline-offset-2 hover:underline"
-          >
-            Cancel
-          </button>
-        </div>
       </div>
     </div>
   );
