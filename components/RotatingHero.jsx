@@ -11,7 +11,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 export default function RotatingHero({
   images = [],
   intervalMs = 4000,
-  className = "",
+  className = "full-bleed",
   title = "Welcome to COOVA",
   subtitle = "Discover luxury pools, unique venues, and cars — or become a host and earn with your space.",
   ctaPrimary = { href: "/browse", label: "Explore Now" },
