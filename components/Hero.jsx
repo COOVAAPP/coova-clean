@@ -9,7 +9,7 @@ export default function Hero() {
       <div className="mx-auto max-w-7xl px-6 py-20 sm:py-28 lg:px-8 lg:py-32">
         <div className="text-center">
           {/* Headline */}
-          <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl">
+          <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl text-white">
             Welcome to <span className="text-cyan-500">COOVA</span>
           </h1>
           <p className="mt-6 text-lg leading-8 text-cyan-100 max-w-2xl mx-auto">
@@ -20,13 +20,13 @@ export default function Hero() {
           <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/browse"
-              className="rounded-full bg-cyan-500 px-6 py-3 font-semibold text-white shadow hover:bg-gray-100 transition"
+              className="mt-6 inline-flex items-center rounded-full bg-white px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-gray-100"
             >
               Explore Now
             </Link>
             <Link
               href="/list"
-              className="rounded-full bg-cyan-500 px-6 py-3 font-semibold text-white shadow hover:bg-cyan-600 transition"
+              className="mt-6 inline-flex items-center rounded-full bg-white px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-gray-100"
             >
               List Your Space
             </Link>
