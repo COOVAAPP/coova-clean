@@ -1,27 +1,16 @@
 export default function NotFound() {
   return (
-    <html lang="en">
-      <body
-        style={{
-          minHeight: "60vh",
-          display: "grid",
-          placeItems: "center",
-          padding: "3rem",
-          background: "#f7fafc",
-          color: "#111827",
-          fontFamily:
-            'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"',
-        }}
+    <main className="mx-auto max-w-3xl px-4 py-16">
+      <h1 className="text-3xl font-extrabold tracking-tight text-cyan-500">Page Not Found</h1>
+      <p className="mt-3 text-gray-600">
+        Sorry, the page you’re looking for doesn’t exist.
+      </p>
+      <a
+        href="/"
+        className="mt-6 inline-block rounded-md bg-cyan-500 px-4 py-2 font-bold text-white hover:text-black"
       >
-        <div style={{ textAlign: "center", maxWidth: 560 }}>
-          <h1 style={{ fontSize: "2rem", fontWeight: 700, marginBottom: "0.75rem" }}>
-            Page Not Found
-          </h1>
-          <p style={{ color: "#6b7280" }}>
-            Sorry, the page you’re looking for doesn’t exist.
-          </p>
-        </div>
-      </body>
-    </html>
+        Go home
+      </a>
+    </main>
   );
 }
