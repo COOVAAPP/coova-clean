@@ -1,6 +1,5 @@
 // app/verify-age/page.jsx
 export const dynamic = "force-dynamic";     // don't cache
-export const revalidate = 0;                 // and no ISR
 export const fetchCache = "force-no-store";  // disable fetch cache
 
 import { Suspense } from "react";

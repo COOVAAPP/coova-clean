@@ -2,7 +2,6 @@
 import AuthModal from "@/components/AuthModal"; // this is a client component
 
 export const dynamic = "force-dynamic"; // valid because this file is server-side
-export const revalidate = 0;             // also valid here
 
 export default function LoginPage() {
   return (
