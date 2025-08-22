@@ -1,43 +1,27 @@
-/// app/page.jsx
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-export const fetchCache = "force-no-store";
+// app/page.jsx  (Server Component)
+// NOTE: Do NOT add "use client" here.
+// We keep the page as a server component and render the client UI inside Suspense.
 
 import { Suspense } from "react";
-import HomeClient from "./HomeClient";
+import HomeClient from "./HomeClient"; // client-side homepage content
+
+// Disable caching if you want always-fresh SSR (safe for now)
+// If you later want ISR, remove these exports and use a number like revalidate = 60.
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 export default function Page() {
   return (
     <main className="min-h-screen">
-      <section className="max-w-6xl mx-auto px-4 py-10">
-        <h2 className="mb-8 text-center text-2xl font-bold">Explore Categories</h2>
-
-        <Suspense
-          fallback={
-            <div className="max-w-6xl mx-auto px-4 py-10">
-              <p className="text-gray-600">Loading…</p>
-            </div>
-          }
-        >
-          <HomeClient />
-        </Suspense>
-      </section>
-
-      {/* CTA */}
-      <section className="bg-brand-600 py-12 text-cyan-500">
-        <h2 className="text-center text-3xl font-bold">Become a Host and Earn with Your Space</h2>
-        <div className="mx-auto mt-3 max-w-2xl text-center">
-          <p>List your pool, backyard, car, or creative venue space and start generating income today.</p>
-          <div className="mt-6 text-center">
-            <a
-              href="/list"
-              className="inline-block rounded-full bg-white px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-gray-100"
-            >
-              Start Hosting
-            </a>
+      <Suspense
+        fallback={
+          <div className="max-w-6xl mx-auto px-4 py-10">
+            <p className="text-gray-600">Loading…</p>
           </div>
-        </div>
-      </section>
+        }
+      >
+        <HomeClient />
+      </Suspense>
     </main>
   );
 }
