@@ -21,9 +21,10 @@ export default function RotatingHero({
   const fallback = useMemo(
     () => [
       // Replace these with your Supabase public URLs if you have different ones
-      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/hero/hero1.jpg",
-      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/hero/hero2.jpg",
-      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/hero/hero3.jpg",
+      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg1.jpg",
+      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg2.jpg",
+      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg3.jpg",
+      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg4.jpg",
     ],
     []
   );
