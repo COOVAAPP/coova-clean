@@ -1,7 +1,7 @@
-// app/verify-age/page.jsx (Client Component)
+// app/verify-age/page.jsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -21,25 +21,19 @@ export default function VerifyAgePage() {
       setErr("You must confirm you are 18+ to continue.");
       return;
     }
-
     setSaving(true);
     try {
-      // Ensure user is logged in
       const { data } = await supabase.auth.getSession();
       const uid = data?.session?.user?.id;
       if (!uid) {
-        // bounce to auth, then return here
-        router.replace(`/login?auth=1&next=${encodeURIComponent(`/verify-age?next=${encodeURIComponent(next)}`)}`);
+        router.replace(`/?auth=1&next=${encodeURIComponent(`/verify-age?next=${encodeURIComponent(next)}`)}`);
         return;
       }
-
       const { error } = await supabase
         .from("profiles")
         .update({ is_adult: true, updated_at: new Date().toISOString() })
         .eq("id", uid);
-
       if (error) throw error;
-
       router.push(next);
     } catch (e) {
       setErr(e?.message || "Something went wrong.");
@@ -51,9 +45,7 @@ export default function VerifyAgePage() {
   return (
     <main className="max-w-xl mx-auto px-4 py-10">
       <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">Age verification</h1>
-      <p className="mt-4 text-gray-600">
-        You must be 18 years or older to create a listing or book a space.
-      </p>
+      <p className="mt-4 text-gray-600">You must be 18 years or older to create a listing or book a space.</p>
 
       <div className="mt-6 flex items-start gap-3 rounded-md border border-gray-200 bg-white p-4">
         <input

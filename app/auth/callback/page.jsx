@@ -1,11 +1,9 @@
 // app/auth/callback/page.jsx
-// SERVER component (no "use client")
-
 import { Suspense } from "react";
 import CallbackClient from "./CallbackClient";
 
-export const dynamic = "force-dynamic";   // don't prerender
-export const revalidate = 0;              // no caching for auth callback
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default function Page() {
   return (

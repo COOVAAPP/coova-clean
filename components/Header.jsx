@@ -1,99 +1,71 @@
 // components/Header.jsx
 "use client";
 
-/**
- * COOVA Header (full version)
- * - Responsive (desktop + mobile)
- * - Browse / List your space nav
- * - Sign in button opens global AuthModal via "open-auth" event
- * - When signed in: shows avatar (photo or initial), dropdown with Profile / Dashboard / Sign out
- * - Pulls avatar from `profiles.avatar_path` (bucket: avatars) and listens to auth changes
- * - Cyan-500 brand accents, hover to black per your preference
- */
-
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-// If you have a SearchBar component, uncomment this import.
-// import SearchBar from "@/components/SearchBar";
-
-function classNames(...xs) {
-  return xs.filter(Boolean).join(" ");
-}
-
 export default function Header() {
-  const pathname = usePathname();
   const router = useRouter();
+  const pathname = usePathname();
 
-  // Auth/session state
+  // auth + profile state
   const [session, setSession] = useState(null);
-
-  // Avatar state (from profiles table)
   const [avatarUrl, setAvatarUrl] = useState(null);
 
   // UI state
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
-  // Compute next param for auth redirect (where to return after sign in)
+  // where to return after auth
   const nextParam = useMemo(() => pathname || "/", [pathname]);
 
-  // Load session and subscribe to changes
+  // load session + subscribe
   useEffect(() => {
     let mounted = true;
-
     supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      setSession(data.session || null);
+      if (mounted) setSession(data.session || null);
     });
-
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_e, s) => {
-      if (!mounted) return;
-      setSession(s || null);
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+      if (mounted) setSession(s || null);
     });
-
     return () => {
       mounted = false;
       sub.subscription.unsubscribe();
     };
   }, []);
 
-  // Fetch avatar from profiles when session changes
+  // fetch avatar (profiles.avatar_path in avatars bucket)
   useEffect(() => {
     (async () => {
       if (!session?.user?.id) {
         setAvatarUrl(null);
         return;
       }
-      // get avatar_path from profiles
       const { data, error } = await supabase
         .from("profiles")
         .select("avatar_path")
         .eq("id", session.user.id)
         .single();
-
       if (error || !data?.avatar_path) {
         setAvatarUrl(null);
         return;
       }
-      // turn the storage path into a public URL
       const { data: pub } = supabase.storage
         .from("avatars")
         .getPublicUrl(data.avatar_path);
-
       setAvatarUrl(pub?.publicUrl || null);
     })();
   }, [session]);
 
-  // Open the global AuthModal (mounted in app/layout.js)
+  // open auth modal (supports both event + query param)
   const openAuth = () => {
-    // Dispatch an event the modal listens for…
-    window.dispatchEvent(
-      new CustomEvent("open-auth", { detail: { next: nextParam } })
-    );
-    // …and mirror state into the URL so refresh keeps the modal open
+    try {
+      window.dispatchEvent(
+        new CustomEvent("open-auth", { detail: { next: nextParam } })
+      );
+    } catch {}
     const url = new URL(window.location.href);
     url.searchParams.set("auth", "1");
     url.searchParams.set("next", nextParam);
@@ -102,16 +74,16 @@ export default function Header() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    setMobileOpen(false);
     setUserMenuOpen(false);
+    setMobileOpen(false);
     router.replace("/");
   };
 
-  // Derive initial letter if no avatar
+  // derived letter
   const email = session?.user?.email || "";
-  const initial = email ? email[0].toUpperCase() : "C";
+  const letter = email ? email[0].toUpperCase() : "C";
 
-  // Close menus on route change
+  // close menus on route change
   useEffect(() => {
     setMobileOpen(false);
     setUserMenuOpen(false);
@@ -120,31 +92,24 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-        {/* Left: Logo */}
-        <div className="flex items-center gap-3">
-          <Link
-            href="/"
-            className="text-4xl font-extrabold tracking-tight text-cyan-500 hover:text-black"
-          >
-            COOVA
-          </Link>
-        </div>
-
-        {/* Center: (optional) Search bar */}
-        {/* <div className="hidden md:block flex-1 px-6">
-          <SearchBar />
-        </div> */}
+        {/* Logo */}
+        <Link
+          href="/"
+          className="text-4xl font-extrabold tracking-tight text-cyan-500 hover:text-black"
+        >
+          COOVA
+        </Link>
 
         {/* Desktop nav */}
         <nav className="hidden items-center gap-6 md:flex">
-          <Link className="font-bold hover:text-cyan-500" href="/">
+          <Link href="/browse" className="font-bold hover:text-cyan-500">
             Browse
           </Link>
-          <Link className="font-bold hover:text-cyan-500" href="/list">
+          <Link href="/list" className="font-bold hover:text-cyan-500">
             List your space
           </Link>
 
-          {/* Auth area */}
+          {/* auth area */}
           {session ? (
             <div className="relative">
               <button
@@ -162,12 +127,11 @@ export default function Header() {
                   />
                 ) : (
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-cyan-500 font-bold text-white">
-                    {initial}
+                    {letter}
                   </div>
                 )}
               </button>
 
-              {/* Dropdown */}
               {userMenuOpen && (
                 <div
                   className="absolute right-0 mt-2 w-44 rounded-md border border-gray-200 bg-white p-2 shadow-xl"
@@ -176,16 +140,16 @@ export default function Header() {
                   <Link
                     href="/profile"
                     className="block rounded px-2 py-1.5 text-sm hover:bg-gray-50"
-                    role="menuitem"
                     onClick={() => setUserMenuOpen(false)}
+                    role="menuitem"
                   >
                     Profile
                   </Link>
                   <Link
                     href="/dashboard"
                     className="block rounded px-2 py-1.5 text-sm hover:bg-gray-50"
-                    role="menuitem"
                     onClick={() => setUserMenuOpen(false)}
+                    role="menuitem"
                   >
                     Dashboard
                   </Link>
@@ -209,7 +173,7 @@ export default function Header() {
           )}
         </nav>
 
-        {/* Mobile right side: hamburger / auth */}
+        {/* Mobile right side */}
         <div className="flex items-center gap-2 md:hidden">
           {session ? (
             <button
@@ -226,7 +190,7 @@ export default function Header() {
                 />
               ) : (
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-cyan-500 text-sm font-bold text-white">
-                  {initial}
+                  {letter}
                 </div>
               )}
             </button>
@@ -244,14 +208,7 @@ export default function Header() {
             className="rounded-md p-2 hover:bg-gray-100"
             aria-label="Open menu"
           >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              className="text-gray-700"
-            >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path strokeWidth="2" d="M3 6h18M3 12h18M3 18h18" />
             </svg>
           </button>
@@ -264,7 +221,7 @@ export default function Header() {
           <div className="border-t border-gray-200" />
           <div className="space-y-1 px-4 py-3">
             <Link
-              href="/"
+              href="/browse"
               className="block rounded px-3 py-2 font-bold hover:bg-gray-50"
               onClick={() => setMobileOpen(false)}
             >
@@ -281,7 +238,6 @@ export default function Header() {
 
           <div className="border-t border-gray-200" />
 
-          {/* Mobile account section */}
           <div className="px-4 py-3">
             {session ? (
               <>
@@ -295,10 +251,12 @@ export default function Header() {
                     />
                   ) : (
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-cyan-500 font-bold text-white">
-                      {initial}
+                      {letter}
                     </div>
                   )}
-                  <div className="text-sm text-gray-700">{email}</div>
+                  <div className="text-sm text-gray-700 truncate max-w-[180px]">
+                    {email}
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <Link
@@ -338,7 +296,7 @@ export default function Header() {
         </div>
       )}
 
-      {/* Click-away overlay for dropdown on desktop */}
+      {/* Desktop click-away overlay for dropdown */}
       {userMenuOpen && (
         <button
           aria-hidden

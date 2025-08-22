@@ -12,31 +12,19 @@ export default function CallbackClient() {
 
   useEffect(() => {
     let cancelled = false;
-
-    async function run() {
-      setErr("");
-
+    (async () => {
       try {
-        // If we already have a session, just continue
         const { data: s } = await supabase.auth.getSession();
-        if (s?.session) {
-          const next = params.get("next") || "/";
-          if (!cancelled) router.replace(next);
-          return;
+        if (!s?.session) {
+          const { error } = await supabase.auth.exchangeCodeForSession();
+          if (error) throw error;
         }
-
-        // Handle the OAuth/code callback (Supabase will read from the URL)
-        const { error } = await supabase.auth.exchangeCodeForSession();
-        if (error) throw error;
-
         const next = params.get("next") || "/";
         if (!cancelled) router.replace(next);
       } catch (e) {
         if (!cancelled) setErr(e?.message || "Sign in failed.");
       }
-    }
-
-    run();
+    })();
     return () => {
       cancelled = true;
     };
@@ -44,9 +32,7 @@ export default function CallbackClient() {
 
   return (
     <div>
-      <h1 className="text-2xl font-extrabold text-cyan-500 tracking-tight">
-        Signing you in…
-      </h1>
+      <h1 className="text-2xl font-extrabold text-cyan-500 tracking-tight">Signing you in…</h1>
       {err && <p className="mt-3 text-sm text-red-600">{err}</p>}
     </div>
   );

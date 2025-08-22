@@ -1,12 +1,7 @@
-// app/page.jsx  (Server Component)
-// NOTE: Do NOT add "use client" here.
-// We keep the page as a server component and render the client UI inside Suspense.
-
+// app/page.jsx
 import { Suspense } from "react";
-import HomeClient from "./HomeClient"; // client-side homepage content
+import HomeClient from "./HomeClient";
 
-// Disable caching if you want always-fresh SSR (safe for now)
-// If you later want ISR, remove these exports and use a number like revalidate = 60.
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 

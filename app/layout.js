@@ -1,9 +1,9 @@
-// app/layout.js  (Server Component)
+// app/layout.js
 import "./globals.css";
 
-import Header from "@/components/Header";    // client component
-import Footer from "@/components/Footer";    // client or server — either is fine
-import AuthModal from "@/components/AuthModal"; // client component mounted globally
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import AuthModal from "@/components/AuthModal";
 
 export const metadata = {
   title: "COOVA",
@@ -14,9 +14,8 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className="bg-gray-50 text-gray-900">
-        {/* Site chrome */}
         <Header />
-        {/* Mount the auth modal once at the root so ?auth=1 opens it anywhere */}
+        {/* AuthModal is safe here; it doesn't use useSearchParams */}
         <AuthModal />
         <div className="min-h-screen">{children}</div>
         <Footer />
