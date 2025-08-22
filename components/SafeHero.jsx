@@ -5,10 +5,10 @@ import Link from "next/link";
 
 export default function SafeHero() {
   const images = [
-    "https://opnqqloemtaaowfttaf.s.supabase.co/storage/v1/object/public/Public/bg1.jpg",
-    "https://opnqqloemtaaowfttaf.s.supabase.co/storage/v1/object/public/Public/bg2.jpg",
-    "https://opnqqloemtaaowfttaf.s.supabase.co/storage/v1/object/public/Public/bg3.jpg",
-    "https://opnqqloemtaaowfttaf.s.supabase.co/storage/v1/object/public/Public/bg4.jpg",
+    "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg1.jpg",
+    "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg2.jpg",
+    "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg3.jpg",
+    "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg4.jpg",
   ];
 
   const intervalMs = 4000;
