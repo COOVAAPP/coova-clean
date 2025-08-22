@@ -41,10 +41,10 @@ export default function Header() {
 
   const navLinks = (
     <>
-      <Link href="/browse" className="text-sm font-semibold hover:text-cyan-600">
+      <Link href="/browse" className="text-sm font-bold hover:text-cyan-600">
         Browse
       </Link>
-      <button onClick={onClickList} className="text-sm font-semibold hover:text-cyan-600">
+      <button onClick={onClickList} className="text-sm font-bold hover:text-cyan-600">
         List your space
       </button>
     </>
