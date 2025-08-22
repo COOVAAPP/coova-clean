@@ -51,9 +51,9 @@ export default function Header() {
   );
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-white/80 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b bg-cyan-500 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <Link href="/" className="text-2xl font-extrabold text-cyan-500">
+        <Link href="/" className="text-2xl font-extrabold text-white">
           COOVA
         </Link>
 
@@ -62,7 +62,7 @@ export default function Header() {
           {navLinks}
           {!session ? (
             <button
-              className="rounded-md bg-cyan-500 px-3 py-1.5 text-sm font-bold text-white hover:bg-cyan-600"
+              className="rounded-md bg-black px-3 py-1.5 text-sm font-bold text-white hover:bg-white"
               onClick={() => openAuth("signin")}
             >
               Sign in / Sign up
