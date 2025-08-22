@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import SafeHero from "./components/SafeHero"; // <- using the hero that was working for you
+import SafeHero from "../components/SafeHero"; // <- using the hero that was working for you
 
 export default function HomeClient() {
   return (
