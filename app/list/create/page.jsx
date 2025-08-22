@@ -1,24 +1,68 @@
-// app/layout.js
-import "./globals.css";
-import Header from "@/components/Header";       // client component
-import Footer from "@/components/Footer";       // (client or server—either is fine)
-import AuthModal from "@/components/AuthModal"; // client component that watches ?auth=1
+// app/list/create/page.jsx
+"use client";
 
-export const metadata = {
-  title: "COOVA",
-  description: "Rent luxury spaces, share vibes.",
-};
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+import CreateListingClient from "@/components/CreateListingClient";
 
-export default function RootLayout({ children }) {
+export default function CreateListingPage() {
+  const router = useRouter();
+  const search = useSearchParams();
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+
+      if (!data.session) {
+        // open login modal on this page and come back here after login
+        const url = new URL(window.location.href);
+        url.searchParams.set("auth", "1");
+        url.searchParams.set("next", "/list/create");
+        router.replace(url.pathname + "?" + url.searchParams.toString());
+      } else {
+        setReady(true);
+      }
+    })();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      if (!mounted) return;
+      if (session) {
+        setReady(true);
+        // clean up ?auth parameter
+        const url = new URL(window.location.href);
+        url.searchParams.delete("auth");
+        router.replace(url.pathname + "?" + url.searchParams.toString());
+      }
+    });
+
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, [router, search]);
+
+  if (!ready) {
+    return (
+      <main className="max-w-6xl mx-auto px-4 py-10">
+        <h1 className="text-2xl font-extrabold">Create Listing</h1>
+        <p className="mt-4">Loading…</p>
+      </main>
+    );
+  }
+
   return (
-    <html lang="en">
-      <body className="bg-gray-50 text-gray-900">
-        <Header />
-        {/* Mount globally so clicking “Sign in” (which sets ?auth=1) opens this anywhere */}
-        <AuthModal />
-        <div className="min-h-screen">{children}</div>
-        <Footer />
-      </body>
-    </html>
+    <main className="max-w-6xl mx-auto px-4 py-10">
+      <h1 className="text-2xl font-extrabold text-cyan-500 tracking-tight">
+        Create Listing
+      </h1>
+      <div className="mt-8">
+        <CreateListingClient />
+      </div>
+    </main>
   );
 }
