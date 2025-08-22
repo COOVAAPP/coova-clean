@@ -1,46 +1,57 @@
 // components/Hero.jsx
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
-import SearchBar from "@/components/SearchBar";
-
-const IMAGES = [
-  "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg1.jpg",
-  "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg2.jpg",
-  "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg3.jpg",
-];
+import Link from "next/link";
 
 export default function Hero() {
-  const [idx, setIdx] = useState(0);
-
-  useEffect(() => {
-    const id = setInterval(() => setIdx((i) => (i + 1) % IMAGES.length), 5000);
-    return () => clearInterval(id);
-  }, []);
-
   return (
-    <section className="relative w-full overflow-hidden">
-      {IMAGES.map((src, i) => (
-        <div
-          key={src}
-          className={`absolute inset-0 bg-center bg-cover transition-opacity duration-1000 ${i === idx ? "opacity-100" : "opacity-0"}`}
-          style={{ backgroundImage: `url(${src})` }}
-        />
-      ))}
+    <section className="relative bg-gradient-to-r from-cyan-500 to-cyan-700 text-white">
+      <div className="mx-auto max-w-7xl px-6 py-20 sm:py-28 lg:px-8 lg:py-32">
+        <div className="text-center">
+          {/* Headline */}
+          <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl">
+            Welcome to <span className="text-black">COOVA</span>
+          </h1>
+          <p className="mt-6 text-lg leading-8 text-cyan-100 max-w-2xl mx-auto">
+            Discover luxury pools, unique venues, and cars — or become a host and earn with your space.
+          </p>
 
-      <div className="relative z-10 container-page py-20 sm:py-28 text-white">
-        <h1 className="text-4xl sm:text-5xl font-bold">Rent Luxury. Share Good Vibes.</h1>
-        <p className="mt-3 max-w-2xl font-bold text-white/90">
-          Spaces, cars, and venues—book by the hour. Host your event or find your next creative location.
-        </p>
-
-        {/* 🔒 Suspense for useSearchParams in SearchBar */}
-        <Suspense fallback={null}>
-          <SearchBar />
-        </Suspense>
+          {/* CTA buttons */}
+          <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
+            <Link
+              href="/browse"
+              className="rounded-full bg-white px-6 py-3 font-semibold text-cyan-600 shadow hover:bg-gray-100 transition"
+            >
+              Explore Now
+            </Link>
+            <Link
+              href="/list"
+              className="rounded-full bg-black px-6 py-3 font-semibold text-white shadow hover:bg-cyan-600 transition"
+            >
+              List Your Space
+            </Link>
+          </div>
+        </div>
       </div>
 
-      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/40" />
+      {/* Background decoration */}
+      <div className="absolute inset-0 overflow-hidden">
+        <svg
+          className="absolute top-0 left-1/2 -translate-x-1/2 opacity-20"
+          width="100%"
+          height="100%"
+          preserveAspectRatio="xMidYMid slice"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#06b6d4" />
+              <stop offset="100%" stopColor="#0e7490" />
+            </linearGradient>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#gradient)" />
+        </svg>
+      </div>
     </section>
   );
 }
