@@ -1,38 +1,18 @@
-// app/verify-age/VerifyAgeClient.jsx
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import supabase from "@/lib/supabaseClient";
+import { useRouter, useSearchParams } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 
-export default function VerifyAgeClient({ next = "/" }) {
+export default function VerifyAgeClient() {
   const router = useRouter();
+  const params = useSearchParams();
 
-  const [checked, setChecked]   = useState(false);
-  const [saving, setSaving]     = useState(false);
-  const [err, setErr]           = useState("");
+  const [checked, setChecked] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
 
-  // Optional: if already verified, bounce immediately
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      const { data: sessionRes } = await supabase.auth.getSession();
-      const uid = sessionRes?.session?.user?.id;
-      if (!uid) return; // let onConfirm handle login redirect
-
-      // If you keep is_adult on the profiles table:
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_adult")
-        .eq("id", uid)
-        .maybeSingle();
-
-      if (mounted && profile?.is_adult === true) {
-        router.replace(next);
-      }
-    })();
-    return () => { mounted = false; };
-  }, [router, next]);
+  const next = params?.get("next") || "/";
 
   const onConfirm = async () => {
     setErr("");
@@ -40,30 +20,20 @@ export default function VerifyAgeClient({ next = "/" }) {
       setErr("You must confirm you are 18+ to continue.");
       return;
     }
-
     setSaving(true);
     try {
-      // Must be logged in to mark verified
-      const { data: sessionRes } = await supabase.auth.getSession();
-      const uid = sessionRes?.session?.user?.id;
-
+      const { data } = await supabase.auth.getSession();
+      const uid = data?.session?.user?.id;
       if (!uid) {
-        // Send to your login page, then back here, then forward to next
-        const returnTo = `/verify-age?next=${encodeURIComponent(next)}`;
-        router.replace(`/login?next=${encodeURIComponent(returnTo)}`);
+        router.replace(`/auth?next=${encodeURIComponent(`/verify-age?next=${next}`)}`);
         return;
       }
-
-      const { error } = await supabase
-        .from("profiles")
-        .update({ is_adult: true, updated_at: new Date().toISOString() })
-        .eq("id", uid);
-
+      const { error } = await supabase.from("profiles").update({ is_adult: true }).eq("id", uid);
       if (error) throw error;
 
-      router.replace(next);
+      router.push(next);
     } catch (e) {
-      setErr(e?.message || "Something went wrong.");
+      setErr("Something went wrong.");
     } finally {
       setSaving(false);
     }
@@ -71,22 +41,17 @@ export default function VerifyAgeClient({ next = "/" }) {
 
   return (
     <main className="max-w-xl mx-auto px-4 py-10">
-      <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">
-        Age verification
-      </h1>
-      <p className="mt-4 text-gray-600">
-        You must be 18 years or older to create a listing or book a space.
-      </p>
+      <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">Age Verification</h1>
+      <p className="mt-4 text-gray-600">You must be 18 years or older to create a listing or book a space.</p>
 
       <div className="mt-6 flex items-start gap-3 rounded-md border border-gray-200 bg-white p-4">
         <input
           id="adult"
           type="checkbox"
-          className="mt-1 h-5 w-5 rounded border-gray-300 text-cyan-600 focus:ring-cyan-600"
           checked={checked}
           onChange={(e) => setChecked(e.target.checked)}
         />
-        <label htmlFor="adult" className="text-sm text-gray-800 select-none">
+        <label htmlFor="adult" className="text-sm text-gray-800">
           I confirm that I am 18 years of age or older.
         </label>
       </div>
