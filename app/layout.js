@@ -1,6 +1,7 @@
 // app/layout.js  (Server Component)
 import "./globals.css";
 
+import supspense from "react"
 import Header from "@/components/Header";    // client component
 import Footer from "@/components/Footer";    // client or server — either is fine
 import AuthModal from "@/components/AuthModal"; // client component mounted globally
