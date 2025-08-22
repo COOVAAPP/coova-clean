@@ -10,7 +10,7 @@ export default function Hero() {
         <div className="text-center">
           {/* Headline */}
           <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl">
-            Welcome to <span className="text-black">COOVA</span>
+            Welcome to <span className="text-cyan-500">COOVA</span>
           </h1>
           <p className="mt-6 text-lg leading-8 text-cyan-100 max-w-2xl mx-auto">
             Discover luxury pools, unique venues, and cars — or become a host and earn with your space.
@@ -20,13 +20,13 @@ export default function Hero() {
           <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/browse"
-              className="rounded-full bg-white px-6 py-3 font-semibold text-cyan-600 shadow hover:bg-gray-100 transition"
+              className="rounded-full bg-cyan-500 px-6 py-3 font-semibold text-white shadow hover:bg-gray-100 transition"
             >
               Explore Now
             </Link>
             <Link
               href="/list"
-              className="rounded-full bg-black px-6 py-3 font-semibold text-white shadow hover:bg-cyan-600 transition"
+              className="rounded-full bg-cyan-500 px-6 py-3 font-semibold text-white shadow hover:bg-cyan-600 transition"
             >
               List Your Space
             </Link>
