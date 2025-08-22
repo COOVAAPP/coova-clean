@@ -7,7 +7,7 @@ export default function HomeClient() {
     <main className="min-h-screen flex flex-col gap-12">
       {/* ROTATING HERO */}
       <RotatingHero
-        className="mx-auto mt-4 max-w-6xl px-4"
+        className="full bleed"
         // Optional: pass your own images; otherwise component uses defaults
         images={[
           // Put your actual Supabase public hero image URLs here
