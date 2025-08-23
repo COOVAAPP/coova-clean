@@ -1,17 +1,18 @@
 // app/HomeClient.jsx
 "use client";
 
-import Safehero from "../components/SafeHero";
+import Link from "next/link";
+import SafeHero from "../components/SafeHero"; // <- make sure this exact path/casing matches the file
 
 export default function HomeClient() {
   return (
     <main className="min-h-screen flex flex-col gap-12">
-      {/* HERO (full bleed, rotating, cyan accents) */}
+      {/* HERO */}
       <SafeHero />
 
       {/* CATEGORY CARDS */}
       <section className="mx-auto max-w-6xl px-4 py-12">
-        <h2 className="mb-8 text-center text-2xl font-bold text-cyan-500">
+        <h2 className="mb-8 text-center text-2xl font-bold text-gray-800">
           Explore Categories
         </h2>
 
@@ -23,7 +24,7 @@ export default function HomeClient() {
             aria-label="Pools & Venues"
           >
             <img
-              src="https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/pools.jpg"
+              src="https://opnqqloemtaaowfttfas.supabase.co/storage/v1/object/public/Public/Public/categories/pools.jpg"
               alt="Pools & Venues"
               className="h-[240px] w-[320px] object-cover transition-transform duration-500 group-hover:scale-105"
             />
@@ -40,7 +41,7 @@ export default function HomeClient() {
             aria-label="Luxury Cars"
           >
             <img
-              src="https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/cars.jpg"
+              src="https://opnqqloemtaaowfttfas.supabase.co/storage/v1/object/public/Public/Public/categories/cars.jpg"
               alt="Luxury Cars"
               className="h-[240px] w-[320px] object-cover transition-transform duration-500 group-hover:scale-105"
             />
@@ -57,7 +58,7 @@ export default function HomeClient() {
             aria-label="Unique Spaces"
           >
             <img
-              src="https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/spaces.jpg"
+              src="https://opnqqloemtaaowfttfas.supabase.co/storage/v1/object/public/Public/Public/categories/spaces.jpg"
               alt="Unique Spaces"
               className="h-[240px] w-[320px] object-cover transition-transform duration-500 group-hover:scale-105"
             />
@@ -70,15 +71,11 @@ export default function HomeClient() {
       </section>
 
       {/* CTA */}
-      <section className="bg-brand-600 py-12 text-cyan-500">
-        <h2 className="text-center text-3xl font-bold">
-          Become a Host and Earn with Your Space
-        </h2>
-        <p className="mx-auto mt-2 max-w-2xl text-center">
-          List your pool, backyard, car, or creative venue space and start
-          generating income today.
+      <section className="bg-brand-600 py-12 text-cyan-50">
+        <h2 className="text-center text-3xl font-bold">Become a Host and Earn with Your Space</h2>
+        <p className="mx-auto mt-3 max-w-2xl text-center text-cyan-50">
+          List your pool, backyard, car, or creative venue space and start generating income today.
         </p>
-
         <div className="mt-6 text-center">
           <a
             href="/list"
