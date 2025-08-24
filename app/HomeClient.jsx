@@ -1,21 +1,21 @@
+// app/HomeClient.jsx
 "use client";
 
 import Link from "next/link";
-import SafeHero from "../components/SafeHero";
+import SafeHero from "../components/SafeHero.jsx"; // <-- exact casing + correct path
 
 export default function HomeClient() {
   return (
     <main className="min-h-screen flex flex-col gap-12">
-      {/* HERO (full bleed) */}
+      {/* HERO (full bleed, uses your working SafeHero component) */}
       <SafeHero
-        // If you want to control the rotation list explicitly, keep this:
         images={[
-          "https://opnqqloemtaaowfttaf.s.supabase.co/storage/v1/object/public/Public/Public/bg1.jpg",
-          "https://opnqqloemtaaowfttaf.s.supabase.co/storage/v1/object/public/Public/Public/bg2.jpg",
-          "https://opnqqloemtaaowfttaf.s.supabase.co/storage/v1/object/public/Public/Public/bg3.jpg",
-          "https://opnqqloemtaaowfttaf.s.supabase.co/storage/v1/object/public/Public/Public/bg4.jpg",
+          // TODO: replace with the exact 4 public URLs from your Supabase bucket
+          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg1.jpg",
+          "https://opngqloemtaaowfttafss.supabase.co/storage/v1/object/public/Public/categories/bg2.jpg",
+          "https://opngqloemtaaowfttafss.supabase.co/storage/v1/object/public/Public/categories/bg3.jpg",
+          "https://opngqloemtaaowfttafss.supabase.co/storage/v1/object/public/Public/caategories/bg4.jpg",
         ]}
-        className="full-bleed"
       />
 
       {/* CATEGORY CARDS */}
@@ -32,7 +32,7 @@ export default function HomeClient() {
             aria-label="Pools & Venues"
           >
             <img
-              src="https://opnqqloemtaaowfttaf.s.supabase.co/storage/v1/object/public/Public/Public/categories/pools.jpg"
+              src="https://opngqloemtaaowfttafss.supabase.co/storage/v1/object/public/Public/categories/pools.jpg"
               alt="Pools & Venues"
               className="h-[240px] w-[320px] object-cover transition-transform duration-500 group-hover:scale-105"
             />
@@ -49,7 +49,7 @@ export default function HomeClient() {
             aria-label="Luxury Cars"
           >
             <img
-              src="https://opnqqloemtaaowfttaf.s.supabase.co/storage/v1/object/public/Public/Public/categories/cars.jpg"
+              src="https://opngqloemtaaowfttafss.supabase.co/storage/v1/object/public/Public/categories/cars.jpg"
               alt="Luxury Cars"
               className="h-[240px] w-[320px] object-cover transition-transform duration-500 group-hover:scale-105"
             />
@@ -66,7 +66,7 @@ export default function HomeClient() {
             aria-label="Unique Spaces"
           >
             <img
-              src="https://opnqqloemtaaowfttaf.s.supabase.co/storage/v1/object/public/Public/Public/categories/spaces.jpg"
+              src="https://opngqloemtaaowfttafss.supabase.co/storage/v1/object/public/Public/categories/spaces.jpg"
               alt="Unique Spaces"
               className="h-[240px] w-[320px] object-cover transition-transform duration-500 group-hover:scale-105"
             />
@@ -81,16 +81,16 @@ export default function HomeClient() {
       {/* CTA */}
       <section className="bg-brand-600 py-12 text-cyan-50">
         <h2 className="text-center text-3xl font-bold">Become a Host and Earn with Your Space</h2>
-        <p className="mx-auto mt-2 max-w-2xl text-center">
+        <p className="mx-auto mt-2 max-w-2xl text-center text-cyan-50/90">
           List your pool, backyard, car, or creative venue space and start generating income today.
         </p>
         <div className="mt-6 text-center">
-          <Link
+          <a
             href="/list"
             className="inline-block rounded-full bg-white px-6 py-3 font-semibold text-brand-600 shadow hover:bg-gray-100"
           >
             Start Hosting
-          </Link>
+          </a>
         </div>
       </section>
     </main>
