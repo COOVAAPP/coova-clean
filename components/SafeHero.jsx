@@ -9,10 +9,10 @@ export default function SafeHero({
   // Fallbacks (only used if you don't pass `images`)
   const defaults = useMemo(
     () => [
-      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg1.jpg",
-      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg2.jpg",
-      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg3.jpg",
-      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg4.jpg",
+          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg1.jpg",
+          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg2.jpg",
+          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg3.jpg",
+          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg4.jpg",
     ],
     []
   );
