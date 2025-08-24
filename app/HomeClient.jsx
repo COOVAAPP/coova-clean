@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import SafeHero from "./components/SafeHero";
+import SafeHero from "../components/SafeHero";
 
 export default function HomeClient() {
   return (
