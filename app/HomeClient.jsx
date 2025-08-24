@@ -1,5 +1,5 @@
 import Link from "next/link";
-import SafeHero from "./components/SafeHero.jsx"; // ✅ make sure this path matches your folder
+import SafeHero from "../components/SafeHero.jsx"; // ✅ make sure this path matches your folder
 
 export default function HomeClient() {
   return (
