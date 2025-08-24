@@ -10,12 +10,11 @@ export default function HomeClient() {
       {/* HERO (full bleed, uses your working SafeHero component) */}
       <SafeHero
         images={[
-          // TODO: replace with the exact 4 public URLs from your Supabase bucket
-          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg1.jpg",
-          "https://opngqloemtaaowfttafss.supabase.co/storage/v1/object/public/Public/categories/bg2.jpg",
-          "https://opngqloemtaaowfttafss.supabase.co/storage/v1/object/public/Public/categories/bg3.jpg",
-          "https://opngqloemtaaowfttafss.supabase.co/storage/v1/object/public/Public/caategories/bg4.jpg",
-        ]}
+          " "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg1.jpg",
+            "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg2.jpg",
+            "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg3.jpg",
+            "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/bg4.jpg",
+            ]}
       />
 
       {/* CATEGORY CARDS */}
@@ -32,7 +31,7 @@ export default function HomeClient() {
             aria-label="Pools & Venues"
           >
             <img
-              src="https://opngqloemtaaowfttafss.supabase.co/storage/v1/object/public/Public/categories/pools.jpg"
+              src="https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/spaces.jpg"
               alt="Pools & Venues"
               className="h-[240px] w-[320px] object-cover transition-transform duration-500 group-hover:scale-105"
             />
@@ -49,7 +48,7 @@ export default function HomeClient() {
             aria-label="Luxury Cars"
           >
             <img
-              src="https://opngqloemtaaowfttafss.supabase.co/storage/v1/object/public/Public/categories/cars.jpg"
+              src="https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/cars.jpg"
               alt="Luxury Cars"
               className="h-[240px] w-[320px] object-cover transition-transform duration-500 group-hover:scale-105"
             />
