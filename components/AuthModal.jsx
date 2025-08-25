@@ -1,153 +1,104 @@
 // components/AuthModal.jsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { supabase } from "../lib/supabaseClient";
 
-function Field({ id, label, type = "text", value, onChange, autoComplete }) {
-  return (
-    <div>
-      <label htmlFor={id} className="block text-sm font-medium text-gray-700">
-        {label}
-      </label>
-      <input
-        id={id}
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        autoComplete={autoComplete}
-        className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
-      />
-    </div>
-  );
-}
-
-export default function AuthModal() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
-
-  const open = params?.get("auth") === "1";
-  const modeParam = params?.get("mode");
-  const startMode = modeParam === "signup" ? "signup" : "signin";
-  const [mode, setMode] = useState(startMode);
-  const next = params?.get("next") || "/";
-
-  // auth method: "magic" or "password"
-  const [method, setMethod] = useState("magic");
-
-  // form state
+export default function AuthModal({
+  open,
+  onClose,
+  defaultTab = "signin", // "signin" | "signup"
+}) {
+  const [tab, setTab] = useState(defaultTab);
   const [email, setEmail] = useState("");
-  const [pw, setPw] = useState("");
-  const [pw2, setPw2] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState(""); // signup only
 
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
-  const [msg, setMsg] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  const dialogRef = useRef(null);
+  const emailRef = useRef(null);
 
   useEffect(() => {
-    setMode(modeParam === "signup" ? "signup" : "signin");
-  }, [modeParam]);
+    if (open) {
+      setTab(defaultTab);
+      setMsg(null);
+      setLoading(false);
+      setTimeout(() => {
+        try {
+          emailRef.current?.focus();
+        } catch {}
+      }, 25);
+    }
+  }, [open, defaultTab]);
 
-  // If user becomes logged-in, continue to next
-  useEffect(() => {
-    let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      if (data?.session) goNext();
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-      if (s) goNext();
-    });
-    return () => sub?.subscription?.unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [next]);
+  const setError = (text) => setMsg({ type: "error", text });
+  const setSuccess = (text) => setMsg({ type: "success", text });
 
-  const goNext = () => {
-    router.replace(next);
-  };
+  const validate = useCallback(() => {
+    if (!email) return "Please enter your email.";
+    if (!/^\S+@\S+\.\S+$/.test(email)) return "Please enter a valid email.";
+    if (!password) return "Please enter your password.";
+    if (tab === "signup" && fullName.trim().length < 2)
+      return "Please enter your full name.";
+    return null;
+  }, [email, password, tab, fullName]);
 
-  const close = () => {
-    const sp = new URLSearchParams(params?.toString() || "");
-    sp.delete("auth");
-    sp.delete("mode");
-    sp.delete("next");
-    const qs = sp.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname);
-  };
-
-  const switchTab = (m) => {
-    const sp = new URLSearchParams(params?.toString() || "");
-    sp.set("auth", "1");
-    sp.set("mode", m);
-    if (!sp.get("next")) sp.set("next", next);
-    router.replace(`${pathname}?${sp.toString()}`);
-  };
-
-  const title = useMemo(
-    () => (mode === "signup" ? "Create your account" : "Welcome back"),
-    [mode]
-  );
-
-  const onOAuth = async (provider) => {
-    setErr(""); setMsg(""); setBusy(true);
+  const handleEmailPassword = async (e) => {
+    e?.preventDefault?.();
+    setMsg(null);
+    const v = validate();
+    if (v) {
+      setError(v);
+      return;
+    }
+    setLoading(true);
     try {
-      const redirectTo = `${location.origin}/auth/callback`;
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo }
-      });
-      if (error) throw error;
-      // user will be redirected out and back
-    } catch (e) {
-      setErr(e.message || "OAuth failed.");
+      if (tab === "signin") {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        setSuccess("Signed in successfully.");
+        setTimeout(() => {
+          onClose?.();
+          window.location.reload();
+        }, 500);
+      } else {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { full_name: fullName } },
+        });
+        if (error) throw error;
+        setSuccess("Account created. Check your email for confirmation.");
+        setTimeout(() => {
+          onClose?.();
+        }, 800);
+      }
+    } catch (err) {
+      setError(err?.message || "Something went wrong.");
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
   };
 
-  const onSubmit = async (e) => {
-    e.preventDefault();
-    setErr(""); setMsg(""); setBusy(true);
+  const handleGoogle = async () => {
+    setMsg(null);
+    setLoading(true);
     try {
-      const redirectTo = `${location.origin}/auth/callback`;
-
-      if (method === "magic") {
-        if (!email) throw new Error("Email is required.");
-        if (mode === "signup") {
-          const { error } = await supabase.auth.signUp({ email, options: { emailRedirectTo: redirectTo }});
-          if (error) throw error;
-          setMsg("Check your email to confirm and finish creating your account.");
-        } else {
-          const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo }});
-          if (error) throw error;
-          setMsg("Check your email for the magic link.");
-        }
-        return;
-      }
-
-      // password method
-      if (!email || !pw) throw new Error("Email and password are required.");
-      if (mode === "signup") {
-        if (pw.length < 6) throw new Error("Password must be at least 6 characters.");
-        if (pw !== pw2) throw new Error("Passwords do not match.");
-        const { error } = await supabase.auth.signUp({
-          email,
-          password: pw,
-          options: { emailRedirectTo: redirectTo },
-        });
-        if (error) throw error;
-        setMsg("Account created. Check your email to confirm.");
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
-        if (error) throw error;
-        // signed in → onAuthStateChange will route to next
-      }
-    } catch (e2) {
-      setErr(e2.message || "Something went wrong.");
-    } finally {
-      setBusy(false);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) throw error;
+    } catch (err) {
+      setError(err?.message || "Google sign-in failed.");
+      setLoading(false);
     }
   };
 
@@ -155,20 +106,22 @@ export default function AuthModal() {
 
   return (
     <div
-      aria-modal
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60"
       role="dialog"
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"
-      onClick={close}
+      aria-modal="true"
     >
       <div
-        className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
+        ref={dialogRef}
+        className="w-[92%] max-w-md rounded-2xl bg-white shadow-xl"
       >
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-extrabold text-gray-900">{title}</h2>
+        {/* Header */}
+        <div className="flex items-center justify-between border-b px-5 py-4">
+          <h2 className="text-lg font-bold text-gray-900">
+            {tab === "signin" ? "Sign in to COOVA" : "Create your COOVA account"}
+          </h2>
           <button
-            onClick={close}
-            className="rounded-md px-2 py-1 text-sm text-gray-500 hover:bg-gray-100"
+            onClick={onClose}
+            className="rounded-md p-2 text-gray-500 hover:bg-gray-100"
             aria-label="Close"
           >
             ✕
@@ -176,104 +129,135 @@ export default function AuthModal() {
         </div>
 
         {/* Tabs */}
-        <div className="mt-4 flex gap-2">
-          <button
-            className={`rounded-md px-3 py-1 text-sm font-semibold ${
-              mode === "signin" ? "bg-cyan-500 text-white" : "bg-gray-100 text-gray-700"
-            }`}
-            onClick={() => switchTab("signin")}
-          >
-            Sign in
-          </button>
-          <button
-            className={`rounded-md px-3 py-1 text-sm font-semibold ${
-              mode === "signup" ? "bg-cyan-500 text-white" : "bg-gray-100 text-gray-700"
-            }`}
-            onClick={() => switchTab("signup")}
-          >
-            Sign up
-          </button>
+        <div className="px-5 pt-4">
+          <div className="inline-flex rounded-full border border-gray-200 bg-gray-50 p-1">
+            <button
+              className={`rounded-full px-5 py-1.5 text-sm font-bold ${
+                tab === "signin"
+                  ? "bg-cyan-500 text-white shadow hover:bg-black"
+                  : "text-gray-600 hover:text-cyan-500"
+              }`}
+              onClick={() => setTab("signin")}
+            >
+              Sign in
+            </button>
+            <button
+              className={`rounded-full px-5 py-1.5 text-sm font-bold ${
+                tab === "signup"
+                  ? "bg-cyan-500 text-white shadow hover:bg-black"
+                  : "text-gray-600 hover:text-cyan-500"
+              }`}
+              onClick={() => setTab("signup")}
+            >
+              Sign up
+            </button>
+          </div>
         </div>
 
-        {/* Method toggle */}
-        <div className="mt-3 flex gap-2">
-          <button
-            className={`rounded-md px-2 py-1 text-xs ${
-              method === "magic" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"
-            }`}
-            onClick={() => setMethod("magic")}
-          >
-            Magic link
-          </button>
-          <button
-            className={`rounded-md px-2 py-1 text-xs ${
-              method === "password" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"
-            }`}
-            onClick={() => setMethod("password")}
-          >
-            Email + Password
-          </button>
-        </div>
-
-        {/* OAuth */}
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <button
-            disabled={busy}
-            onClick={() => onOAuth("google")}
-            className="rounded-md border px-3 py-2 text-sm font-semibold hover:bg-gray-50 disabled:opacity-50"
-          >
-            Continue with Google
-          </button>
-          <button
-            disabled={busy}
-            onClick={() => onOAuth("apple")}
-            className="rounded-md border px-3 py-2 text-sm font-semibold hover:bg-gray-50 disabled:opacity-50"
-          >
-            Continue with Apple
-          </button>
-        </div>
-
-        <div className="my-4 flex items-center gap-3">
-          <div className="h-px flex-1 bg-gray-200" />
-          <span className="text-xs uppercase tracking-wide text-gray-400">or</span>
-          <div className="h-px flex-1 bg-gray-200" />
-        </div>
-
-        {/* Form */}
-        <form onSubmit={onSubmit} className="space-y-3">
-          <Field id="email" label="Email" type="email" value={email} onChange={setEmail} autoComplete="email" />
-          {method === "password" && (
-            <>
-              <Field id="pw" label="Password" type="password" value={pw} onChange={setPw} autoComplete="current-password" />
-              {mode === "signup" && (
-                <Field id="pw2" label="Confirm password" type="password" value={pw2} onChange={setPw2} autoComplete="new-password" />
-              )}
-            </>
+        {/* Body */}
+        <form
+          className="px-5 pb-5 pt-4 space-y-4"
+          onSubmit={handleEmailPassword}
+        >
+          {tab === "signup" && (
+            <div>
+              <label className="text-sm font-semibold text-gray-700">
+                Full name
+              </label>
+              <input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="mt-1 w-full rounded-full border px-4 py-2 text-sm outline-none focus:border-cyan-500"
+              />
+            </div>
           )}
 
-          {err && <p className="text-sm text-red-600">{err}</p>}
-          {msg && <p className="text-sm text-green-600">{msg}</p>}
+          <div>
+            <label className="text-sm font-semibold text-gray-700">
+              Email
+            </label>
+            <input
+              ref={emailRef}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1 w-full rounded-full border px-4 py-2 text-sm outline-none focus:border-cyan-500"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-semibold text-gray-700">
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1 w-full rounded-full border px-4 py-2 text-sm outline-none focus:border-cyan-500"
+            />
+          </div>
+
+          {msg && (
+            <div
+              className={`rounded-md px-3 py-2 text-sm font-semibold ${
+                msg.type === "error"
+                  ? "bg-red-50 text-red-600 border border-red-200"
+                  : "bg-green-50 text-green-600 border border-green-200"
+              }`}
+            >
+              {msg.text}
+            </div>
+          )}
 
           <button
             type="submit"
-            disabled={busy}
-            className="w-full rounded-md bg-cyan-500 px-4 py-2 font-bold text-white hover:bg-cyan-600 disabled:opacity-50"
+            disabled={loading}
+            className="mt-2 inline-flex w-full items-center justify-center rounded-full border-2 border-cyan-500 bg-white px-5 py-2 font-bold text-cyan-500 shadow hover:bg-cyan-50 hover:text-black disabled:opacity-50"
           >
-            {busy
-              ? "Working…"
-              : mode === "signup"
-              ? method === "magic"
-                ? "Send sign-up link"
-                : "Create account"
-              : method === "magic"
-              ? "Send magic link"
-              : "Sign in"}
+            {loading
+              ? tab === "signin"
+                ? "Signing in..."
+                : "Creating account..."
+              : tab === "signin"
+              ? "Sign in"
+              : "Sign up"}
           </button>
 
-          <p className="text-xs text-gray-500">
-            After completing {mode === "signup" ? "sign up" : "sign in"}, you’ll return to{" "}
-            <span className="font-mono">{next}</span>.
-          </p>
+          {/* Divider */}
+          <div className="relative my-3">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-white px-2 text-xs uppercase tracking-wide text-gray-500">
+                Or continue with
+              </span>
+            </div>
+          </div>
+
+          {/* Google */}
+          <button
+            type="button"
+            onClick={handleGoogle}
+            disabled={loading}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-gray-300 bg-white px-5 py-2 font-bold text-gray-700 shadow hover:border-cyan-500 hover:text-cyan-500 disabled:opacity-50"
+          >
+            <svg
+              viewBox="0 0 48 48"
+              className="h-5 w-5"
+              aria-hidden="true"
+            >
+              <path
+                fill="#FFC107"
+                d="M43.6 20.5H42V20H24v8h11.3C33.8 31.7 29.4 35 24 35c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.7 1.1 7.8 3l5.7-5.7C33.4 5.1 28.9 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.3-.1-2.7-.4-3.9z"
+              />
+              <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.8 16 19 13 24 13c3 0 5.7 1.1 7.8 3l5.7-5.7C33.4 5.1 28.9 3 24 3 15.5 3 8.2 7.7 6.3 14.7z" />
+              <path fill="#4CAF50" d="M24 45c5.3 0 10.2-2 13.8-5.3l-6.4-5.2C29.4 35 26.8 36 24 36c-5.4 0-9.8-3.3-11.3-7.7l-6.5 5C8 40.3 15.4 45 24 45z" />
+              <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3C33.8 31.7 29.4 35 24 35c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.7 1.1 7.8 3l5.7-5.7C33.4 5.1 28.9 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.3-.1-2.7-.4-3.9z" />
+            </svg>
+            Continue with Google
+          </button>
         </form>
       </div>
     </div>

@@ -1,95 +1,79 @@
+// components/SafeHero.jsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import AuthModal from "./AuthModal.jsx";
+// If you use path aliases, you can switch this to "@/lib/useRequireAuth"
+import useRequireAuth from "../lib/useRequireAuth";
 
 export default function SafeHero({
-  images = [],
-  intervalMs = 4000, // rotate every 4s
+  // You can pass a custom image; we fall back to your Supabase hero image
+  imageUrl = "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/Public/bg1.jpg",
 }) {
-  // Fallbacks (only used if you don't pass `images`)
-  const defaults = useMemo(
-    () => [
-          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg1.jpg",
-          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg2.jpg",
-          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg3.jpg",
-          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg4.jpg",
-    ],
-    []
-  );
+  const { requireAuth, authOpen, setAuthOpen, authTab } = useRequireAuth();
 
-  const pics = images.length ? images : defaults;
-
-  // Preload so the first swap doesn't flash
-  useEffect(() => {
-    pics.forEach((src) => {
-      const img = new Image();
-      img.src = src;
-    });
-  }, [pics]);
-
-  const [idx, setIdx] = useState(0);
-  const hoverRef = useRef(false);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (!hoverRef.current) {
-        setIdx((i) => (i + 1) % pics.length);
-      }
-    }, intervalMs);
-    return () => clearInterval(id);
-  }, [pics, intervalMs]);
+  const handleListYourSpace = async () => {
+    // If authed -> go to create listing
+    // If not -> open AuthModal on the "signup" tab
+    await requireAuth(() => {
+      window.location.href = "/list/create";
+    }, "signup");
+  };
 
   return (
-    <section className="relative w-full">
-      {/* Fixed-height HERO BAND (adjust numbers if you want it taller/shorter) */}
+    <section className="relative w-full overflow-hidden">
+      {/* Background image */}
       <div
-        className="relative h-[360px] sm:h-[420px] md:h-[460px] lg:h-[520px] w-full overflow-hidden"
-        onMouseEnter={() => (hoverRef.current = true)}
-        onMouseLeave={() => (hoverRef.current = false)}
-      >
-        {/* Actual image that fills the band */}
-        <img
-          src={pics[idx]}
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover"
-          // if an image fails to load, advance to the next one
-          onError={() => setIdx((i) => (i + 1) % pics.length)}
-          fetchpriority="high"
-        />
+        className="h-[420px] sm:h-[480px] lg:h-[520px] bg-center bg-cover"
+        style={{ backgroundImage: `url("${imageUrl}")` }}
+        aria-hidden="true"
+      />
 
-        {/* Dark gradient for legibility */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/20" />
+      {/* Dark gradient for readability */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/0 pointer-events-none" />
 
-        {/* Foreground content */}
-        <div className="relative z-10 flex h-full items-center">
-          <div className="px-4 md:px-8 w-full">
-            <div className="max-w-4xl">
-              <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl text-white">
-                Welcome to <span className="text-cyan-500">COOVA</span>
-              </h1>
-              <p className="mt-2 max-w-xl text-white/90">
-                Discover luxury pools, unique venues, and cars — or become a
-                host and earn with your space.
-              </p>
+      {/* Content */}
+      <div className="absolute inset-0 flex items-center">
+        <div className="container-page mx-auto w-full max-w-6xl px-4 lg:px-8 text-white">
+          {/* Headline */}
+          <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">
+            Welcome to <span className="text-cyan-500">COOVA</span>
+          </h1>
 
-              <div className="mt-6 flex flex-wrap gap-4">
-                <a
-                  href="/browse"
-                  className="inline-flex items-center rounded-full border-2 border-cyan-500 bg-white px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-cyan-50"
-                >
-                  Explore Now
-                </a>
-                <a
-                  href="/list"
-                  className="inline-flex items-center rounded-full border-2 border-cyan-500 bg-white px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-cyan-50"
-                >
-                  List Your Space
-                </a>
-              </div>
-            </div>
+          {/* Subhead */}
+          <p className="mt-6 text-lg leading-8 text-white/90 max-w-2xl">
+            Discover luxury pools, unique venues, and cars — or become a host and
+            earn with your space.
+          </p>
+
+          {/* CTA buttons */}
+          <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:justify-start">
+            <Link
+              href="/browse"
+              className="inline-flex items-center justify-center rounded-full border-2 border-cyan-500 bg-white px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-cyan-50"
+              aria-label="Explore Now"
+            >
+              Explore Now
+            </Link>
+
+            <button
+              type="button"
+              onClick={handleListYourSpace}
+              className="inline-flex items-center justify-center rounded-full border-2 border-cyan-500 bg-white px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-cyan-50"
+              aria-label="List Your Space"
+            >
+              List Your Space
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Auth modal (mounted once here; remove if you already mount it in layout/header) */}
+      <AuthModal
+        open={authOpen}
+        onClose={() => setAuthOpen(false)}
+        defaultTab={authTab}
+      />
     </section>
   );
 }
