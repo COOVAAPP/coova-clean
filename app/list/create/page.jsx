@@ -2,13 +2,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import CreateListingClient from "@/components/CreateListingClient.jsx"; // keep your existing component
+import { useRouter } from "next/navigation";
+import CreateListingClient from "@/components/CreateListingClient.jsx";
 import { createClient } from "@supabase/supabase-js";
 
-// browser client
+// Make sure env vars exist before creating the client
 const supabase =
-  typeof window !== "undefined"
+  typeof window !== "undefined" &&
+  process.env.NEXT_PUBLIC_SUPABASE_URL &&
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     ? createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -17,14 +19,22 @@ const supabase =
 
 export default function CreateListingPage() {
   const router = useRouter();
-  const [status, setStatus] = useState<"checking" | "authed" | "guest">("checking");
+  // ❌ no TS generics in .jsx
+  const [status, setStatus] = useState("checking"); // "checking" | "authed" | "guest"
 
   useEffect(() => {
     let mounted = true;
-    (async () => {
-      if (!supabase) return;
 
-      // get session (fast, local)
+    (async () => {
+      if (!supabase) {
+        // If the client isn't ready, consider this a guest and push to login
+        setStatus("guest");
+        const next = encodeURIComponent("/list/create");
+        router.replace(`/login?next=${next}`);
+        return;
+      }
+
+      // Fast local session read
       const { data } = await supabase.auth.getSession();
       const user = data?.session?.user ?? null;
 
@@ -32,7 +42,6 @@ export default function CreateListingPage() {
 
       if (!user) {
         setStatus("guest");
-        // send them to login with a return path
         const next = encodeURIComponent("/list/create");
         router.replace(`/login?next=${next}`);
       } else {
@@ -40,17 +49,21 @@ export default function CreateListingPage() {
       }
     })();
 
-    // if they log in on this tab (rare), move forward
-    const { data: sub } = supabase?.auth.onAuthStateChange((evt, session) => {
+    // If auth changes while this page is open, advance
+    const sub = supabase?.auth.onAuthStateChange((_evt, session) => {
       if (session?.user) {
         setStatus("authed");
         router.replace("/list/create");
       }
-    }) ?? { data: null };
+    });
 
     return () => {
       mounted = false;
-      sub?.subscription?.unsubscribe?.();
+      // guard in case sub is undefined
+      try {
+        sub?.data?.subscription?.unsubscribe?.();
+        sub?.subscription?.unsubscribe?.(); // older supabase-js
+      } catch {}
     };
   }, [router]);
 
@@ -62,6 +75,6 @@ export default function CreateListingPage() {
     );
   }
 
-  // ✅ user is authenticated – render your existing flow
+  // ✅ Authenticated: render your flow
   return <CreateListingClient />;
 }
