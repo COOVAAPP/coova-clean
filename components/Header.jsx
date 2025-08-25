@@ -1,25 +1,25 @@
 // components/Header.jsx
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+// local pieces
 import AuthModal from "./AuthModal.jsx";
 import useRequireAuth from "../lib/useRequireAuth";
 
 export default function Header() {
   const pathname = usePathname();
 
-  // ===== Auth modal state =====
-  const [authOpen, setAuthOpen] = useState(false);
-  const [authTab, setAuthTab] = useState("signin");
-  const [authReturnTo, setAuthReturnTo] = useState("/");
+  // Pull ONLY state we need. We won't call any helper that might be undefined.
+  const {
+    user,
+    authOpen, setAuthOpen,
+    authTab, setAuthTab,
+    setReturnTo,             // <- used to tell the modal where to go after auth
+  } = useRequireAuth();
 
-  // ===== Auth helpers =====
-  const { user, requireAuth, signOut } = useRequireAuth?.() || {};
-
-  // ===== UI state =====
   const [mobileOpen, setMobileOpen] = useState(false);
   useEffect(() => setMobileOpen(false), [pathname]);
 
@@ -28,72 +28,59 @@ export default function Header() {
     [pathname]
   );
 
-  const openAuth = useCallback((tab = "signin", returnTo = "/") => {
-    setAuthTab(tab);
-    setAuthReturnTo(returnTo);
-    setAuthOpen(true);
-  }, []);
+  // Open modal to a specific tab safely
+  const openAuth = useCallback((tab = "signin") => {
+    if (typeof setAuthTab === "function") setAuthTab(tab);
+    if (typeof setAuthOpen === "function") setAuthOpen(true);
+  }, [setAuthOpen, setAuthTab]);
 
-  const onListYourSpace = useCallback(async () => {
-    const next = "/list/create";
-
-    if (typeof requireAuth === "function") {
-      await requireAuth(() => {
-        window.location.href = next;
-      }, "signup");
-    } else {
-      // fallback: just open modal
-      setAuthTab("signup");
-      setAuthReturnTo(next);
-      setAuthOpen(true);
+  // ✅ SAFE gate: if logged in, go; otherwise open auth & set return path
+  const onListYourSpace = useCallback(() => {
+    if (user) {
+      window.location.href = "/list/create";
+      return;
     }
-  }, [requireAuth]);
+    setReturnTo?.("/list/create");
+    openAuth("signin");
+  }, [user, setReturnTo, openAuth]);
 
-  const authButtonLabel = user ? "Account" : "Sign in / Sign up";
+  const authButtonLabel = useMemo(
+    () => (user ? "Account" : "Sign in / Sign up"),
+    [user]
+  );
 
   return (
     <>
-      {/* Top bar */}
       <header className="sticky top-0 z-40 bg-cyan-500/90 backdrop-blur supports-[backdrop-filter]:bg-cyan-500/70 border-b border-white/10">
         <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-14 items-center justify-between">
-            {/* Left: Brand + mobile menu */}
+            {/* Left: brand + hamburger */}
             <div className="flex items-center gap-3">
               <button
                 className="lg:hidden inline-flex items-center justify-center p-2 rounded-md text-white/90 hover:text-white hover:bg-white/10 outline-none"
                 aria-label="Open navigation"
-                onClick={() => setMobileOpen((v) => !v)}
+                onClick={() => setMobileOpen(v => !v)}
               >
-                <svg
-                  className="h-6 w-6"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
+                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
 
-              <Link
-                href="/"
-                className="font-extrabold tracking-wide text-2xl text-white"
-              >
+              <Link href="/" className="font-extrabold tracking-wide text-2xl text-white">
                 COOVA
               </Link>
             </div>
 
-            {/* Center: primary nav (desktop) */}
+            {/* Center (desktop) */}
             <nav className="hidden lg:flex items-center gap-8">
               <Link
                 href="/browse"
-                className={`text-sm font-medium transition hover:text-white ${isActive(
-                  "/browse"
-                )}`}
+                className={`text-sm font-medium transition hover:text-white ${isActive("/browse")}`}
               >
                 Browse
               </Link>
 
+              {/* use a button so click is fully controlled */}
               <button
                 onClick={onListYourSpace}
                 className="rounded-full border-2 border-white/80 px-4 py-1.5 text-sm font-semibold text-white hover:bg-white/10 transition"
@@ -103,12 +90,12 @@ export default function Header() {
               </button>
             </nav>
 
-            {/* Right: auth / dashboard */}
+            {/* Right: auth */}
             <div className="flex items-center gap-3">
               {!user ? (
                 <div className="hidden sm:flex items-center gap-2">
                   <button
-                    onClick={() => openAuth("signin", pathname || "/")}
+                    onClick={() => openAuth("signin")}
                     className="rounded-full border-2 border-white px-4 py-1.5 text-sm font-semibold text-white hover:bg-white/10 transition"
                   >
                     {authButtonLabel}
@@ -132,9 +119,7 @@ export default function Header() {
             <div className="mx-auto w-full max-w-7xl px-4 py-3 flex flex-col gap-2">
               <Link
                 href="/browse"
-                className={`block rounded-md px-3 py-2 text-base font-medium hover:bg-white/10 ${isActive(
-                  "/browse"
-                )}`}
+                className={`block rounded-md px-3 py-2 text-base font-medium hover:bg-white/10 ${isActive("/browse")}`}
               >
                 Browse
               </Link>
@@ -149,13 +134,13 @@ export default function Header() {
               {!user ? (
                 <div className="mt-1 grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => openAuth("signin", pathname || "/")}
+                    onClick={() => openAuth("signin")}
                     className="rounded-md bg-white/10 px-3 py-2 text-sm font-semibold text-white hover:bg-white/20"
                   >
                     Sign in
                   </button>
                   <button
-                    onClick={() => openAuth("signup", pathname || "/")}
+                    onClick={() => openAuth("signup")}
                     className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-cyan-700 hover:bg-white/90"
                   >
                     Sign up
@@ -174,12 +159,11 @@ export default function Header() {
         )}
       </header>
 
-      {/* Auth modal */}
+      {/* Auth modal lives once at root; we pass current tab + open state */}
       <AuthModal
-        isOpen={authOpen}
-        onClose={() => setAuthOpen(false)}
-        defaultTab={authTab}
-        returnTo={authReturnTo}
+        open={!!authOpen}
+        onClose={() => setAuthOpen?.(false)}
+        defaultTab={authTab || "signin"}
       />
     </>
   );
