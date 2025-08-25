@@ -1,5 +1,8 @@
+// app/HomeClient.jsx
+"use client";
+
 import Link from "next/link";
-import SafeHero from "../components/SafeHero.jsx"; // ✅ make sure this path matches your folder
+import SafeHero from "../components/SafeHero.jsx"; // 👈 IMPORTANT: one level up
 
 export default function HomeClient() {
   return (
@@ -7,6 +10,7 @@ export default function HomeClient() {
       {/* HERO (full bleed, uses your working SafeHero component) */}
       <SafeHero
         images={[
+          // put your 4 public Supabase URLs here (the ones that 200 in the browser)
           "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg1.jpg",
           "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg2.jpg",
           "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg3.jpg",
@@ -75,15 +79,15 @@ export default function HomeClient() {
       </section>
 
       {/* CTA */}
-      <section className="bg-brand-600 py-12 text-center text-cyan-500">
+      <section className="bg-brand-600 py-12 text-cyan-50">
         <h2 className="text-center text-3xl font-bold">Become a Host and Earn with Your Space</h2>
-        <p className="mx-auto mt-2 max-w-2xl text-center text-cyan-500">
+        <p className="mx-auto mt-2 max-w-2xl text-center text-cyan-100">
           List your pool, backyard, car, or creative venue space and start generating income today.
         </p>
         <div className="mt-6 text-center">
           <a
             href="/list"
-            className="inline-block rounded-full bg-white px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-gray-100"
+            className="inline-block rounded-full bg-white px-6 py-3 font-semibold text-brand-600 shadow hover:bg-gray-100"
           >
             Start Hosting
           </a>
