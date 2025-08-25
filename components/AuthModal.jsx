@@ -316,13 +316,7 @@ export default function AuthModal({
               </svg>
               Google
             </button>
-            <button
-              onClick={() => handleOAuth("apple")}
-              disabled={busy}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-800 bg-black px-3 py-2 text-sm font-semibold text-white hover:bg-gray-900 disabled:opacity-50"
-            >
-               Apple
-            </button>
+            
           </div>
         </div>
 
