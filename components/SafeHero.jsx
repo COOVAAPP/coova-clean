@@ -75,7 +75,7 @@ return (
 
           {/* This stays a button; Header handles auth-guarded navigation too */}
           <button
-            onClick={onCtaList}                 // <-- (see header fix below if you want to reuse)
+            onClick={onListYourSpace}                 // <-- (see header fix below if you want to reuse)
             className="inline-flex items-center rounded-full border-2 border-cyan-500 bg-white px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-cyan-50"
           >
             List Your Space
