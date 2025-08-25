@@ -65,7 +65,7 @@ export default function Header() {
 
   return (
     <>
-      <header className="sticky top-0 z-[300] pointer-events-auto bg-cyan-500/90 backdrop-blur supports-[backdrop-filter]:bg-cyan-500/70 border-b border-white/10">
+      <header className="sticky top-0 z-50 pointer-events-auto bg-cyan-500/90 backdrop-blur supports-[backdrop-filter]:bg-cyan-500/70 border-b border-white/10">
         <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-14 items-center justify-between">
             {/* Left: brand + mobile menu */}
@@ -113,7 +113,7 @@ export default function Header() {
                     onClick={() => openAuth("signin")}
                     className="cursor-pointer rounded-full border-2 border-white px-4 py-1.5 text-sm font-semibold text-white hover:bg-white/10 transition"
                   >
-                    {authButtonLabel}
+                    Sign in / Sign up
                   </button>
                 </div>
               ) : (
@@ -121,7 +121,7 @@ export default function Header() {
                   href="/dashboard"
                   className="cursor-pointer rounded-full border-2 border-white px-4 py-1.5 text-sm font-semibold text-white hover:bg-white/10 transition"
                 >
-                  {authButtonLabel}
+                  Dashboard
                 </Link>
               )}
             </div>
