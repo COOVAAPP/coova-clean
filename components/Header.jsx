@@ -1,4 +1,3 @@
-// components/Header.jsx
 "use client";
 
 import { useCallback } from "react";
