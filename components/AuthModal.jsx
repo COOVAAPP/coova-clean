@@ -1,338 +1,291 @@
 // components/AuthModal.jsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "../lib/supabaseClient";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { supabase } from "../lib/supabaseClient"; // ✅ your singleton browser client
+
 /**
  * Props:
- *  - open: boolean
+ *  - open: boolean (controls visibility)
  *  - onClose: () => void
  *  - defaultTab?: "signin" | "signup"
- *
- * This component lazy-loads your Supabase browser client to avoid build-time
- * coupling. Update the candidate paths inside loadSupabase() if yours differs.
  */
+export default function AuthModal({ open, onClose, defaultTab = "signin" }) {
+  // tabs
+  const [tab, setTab] = useState(defaultTab); // "signin" | "signup"
+  useEffect(() => setTab(defaultTab), [defaultTab]);
 
-export default function AuthModal({
-  open,
-  onClose,
-  defaultTab = "signin",
-}) {
-  const [tab, setTab] = useState(defaultTab);
+  // form
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [showPw, setShowPw] = useState(false);
+
+  // ui state
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const dialogRef = useRef(null);
-  const firstFocusRef = useRef(null);
-  const lastFocusRef = useRef(null);
-  const supabaseRef = useRef(null);
+  const [info, setInfo] = useState("");
 
-  // Keep tab in sync if parent changes defaultTab while open
+  // for focus trapping
+  const firstFieldRef = useRef(null);
+
   useEffect(() => {
-    if (open) setTab(defaultTab);
-  }, [open, defaultTab]);
-
-  // ESC to close, and basic focus trap
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (e) => {
-      if (e.key === "Escape") onClose?.();
-      if (e.key === "Tab") {
-        // very small focus trap
-        const focusable = dialogRef.current?.querySelectorAll(
-          'a,button,input,select,textarea,[tabindex]:not([tabindex="-1"])'
-        );
-        if (!focusable?.length) return;
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    setTimeout(() => firstFocusRef.current?.focus(), 0);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
-
-  const header = useMemo(
-    () => (tab === "signin" ? "Welcome back" : "Create your account"),
-    [tab]
-  );
-
-  // ---- Supabase loader (lazy) ----
-  async function loadSupabase() {
-    if (supabaseRef.current) return supabaseRef.current;
-
-    // ✅ Update these candidate paths if needed:
-    const candidates = [
-      "../supabaseClient",        // e.g. /components -> /supabaseClient.js
-      "../lib/supabaseClient",    // e.g. /lib/supabaseClient.ts
-    ];
-
-    for (const p of candidates) {
-      try {
-        const mod = await import(/* @vite-ignore */ p);
-        const sb =
-          mod.supabase ||
-          mod.client ||
-          mod.default ||
-          mod.sb ||
-          (mod.createClient ? mod.createClient() : null);
-        if (sb) {
-          supabaseRef.current = sb;
-          return sb;
-        }
-      } catch (_) {
-        // try next candidate
-      }
+    if (open) {
+      // reset transient messages whenever modal reopens
+      setError("");
+      setInfo("");
+      // autofocus first field
+      setTimeout(() => firstFieldRef.current?.focus(), 0);
     }
-    throw new Error(
-      "Could not locate Supabase browser client. Update loadSupabase() paths."
-    );
-  }
+  }, [open]);
 
-  async function handleEmailAuth(e) {
-    e.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      const supabase = await loadSupabase();
-      if (tab === "signin") {
-        const { data, error: err } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (err) throw err;
-        // optional: redirect or toast
-        onClose?.();
-      } else {
-        const { data, error: err } = await supabase.auth.signUp({
-          email,
-          password,
-          // You can add emailRedirectTo here if you use confirm emails:
-          // options: { emailRedirectTo: `${location.origin}/auth/callback` }
-        });
-        if (err) throw err;
-        onClose?.();
-      }
-    } catch (err) {
-      setError(err?.message || "Something went wrong. Please try again.");
-    } finally {
-      setBusy(false);
-    }
-  }
+  const close = useCallback(() => {
+    if (submitting) return;
+    onClose?.();
+  }, [onClose, submitting]);
 
-  async function handleOAuth(provider) {
-    setBusy(true);
+  // ---- OAuth: Google -------------------------------------------------------
+  const signInWithGoogle = useCallback(async () => {
     setError("");
+    setInfo("");
     try {
-      const supabase = await loadSupabase();
-      const { error: err } = await supabase.auth.signInWithOAuth({
-        provider,
+      const origin =
+        typeof window !== "undefined" ? window.location.origin : "";
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
         options: {
-          redirectTo:
-            typeof window !== "undefined"
-              ? `${window.location.origin}/auth/callback`
-              : undefined,
+          redirectTo: `${origin}/`,
+          queryParams: { prompt: "select_account" },
         },
       });
-      if (err) throw err;
-      // For OAuth we redirect away; modal can close proactively
-      onClose?.();
-    } catch (err) {
-      setError(err?.message || "OAuth error. Please try again.");
-    } finally {
-      setBusy(false);
+      if (error) throw error;
+      // Redirect happens automatically; no need to close here.
+    } catch (e) {
+      console.error(e);
+      setError(e?.message || "Google sign-in failed.");
     }
-  }
+  }, []);
 
+  // ---- Email/Password flows -----------------------------------------------
+  const handleEmailPassword = useCallback(
+    async (e) => {
+      e?.preventDefault?.();
+      setSubmitting(true);
+      setError("");
+      setInfo("");
+
+      try {
+        if (tab === "signin") {
+          const { error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+          if (error) throw error;
+          // success — close modal
+          close();
+        } else {
+          // signup
+          const { error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              emailRedirectTo:
+                typeof window !== "undefined"
+                  ? `${window.location.origin}/`
+                  : undefined,
+            },
+          });
+          if (error) throw error;
+          setInfo(
+            "Check your inbox to confirm your email, then sign in to continue."
+          );
+          // keep modal open so they can see the message
+        }
+      } catch (e) {
+        console.error(e);
+        setError(e?.message || "Authentication failed.");
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [tab, email, password, close]
+  );
+
+  // ---- Derived UI ----------------------------------------------------------
+  const title = tab === "signin" ? "Welcome back" : "Create your account";
+  const primaryCta = tab === "signin" ? "Sign in" : "Create account";
+
+  // ---- Render nothing if closed -------------------------------------------
   if (!open) return null;
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center"
-      aria-labelledby="auth-modal-title"
       role="dialog"
       aria-modal="true"
+      className="fixed inset-0 z-[100] flex items-center justify-center"
     >
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={() => onClose?.()}
+      <button
+        aria-label="Close"
+        onClick={close}
+        className="absolute inset-0 bg-black/50 transition-opacity"
       />
 
-      {/* Panel */}
-      <div
-        ref={dialogRef}
-        className="relative z-10 w-full max-w-md rounded-2xl bg-white shadow-2xl ring-1 ring-black/5"
-      >
-        {/* Top border to match brand */}
-        <div className="h-1 w-full bg-cyan-500 rounded-t-2xl" />
+      {/* Modal */}
+      <div className="relative w-[92%] max-w-md rounded-2xl bg-white p-5 shadow-xl">
+        {/* Close button */}
+        <button
+          onClick={close}
+          className="absolute right-3 top-3 rounded p-1 text-gray-400 hover:bg-gray-100"
+          aria-label="Close authentication dialog"
+        >
+          <svg viewBox="0 0 20 20" className="h-5 w-5" fill="currentColor">
+            <path
+              fillRule="evenodd"
+              d="M10 8.586 4.293 2.879 2.879 4.293 8.586 10l-5.707 5.707 1.414 1.414L10 11.414l5.707 5.707 1.414-1.414L11.414 10l5.707-5.707-1.414-1.414L10 8.586z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </button>
 
-        {/* Content */}
-        <div className="p-6">
-          {/* Close */}
+        {/* Title */}
+        <h3 className="mb-1 text-xl font-semibold text-gray-900">{title}</h3>
+        <p className="mb-4 text-sm text-gray-500">
+          {tab === "signin"
+            ? "Sign in to continue."
+            : "Use email & password to get started."}
+        </p>
+
+        {/* Tabs */}
+        <div className="mb-4 flex gap-2">
           <button
-            ref={firstFocusRef}
-            onClick={() => onClose?.()}
-            aria-label="Close"
-            className="absolute right-3 top-3 rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className={`rounded-full px-3 py-1 text-sm ${
+              tab === "signin"
+                ? "bg-cyan-100 text-cyan-700"
+                : "text-gray-600 hover:bg-gray-100"
+            }`}
+            onClick={() => setTab("signin")}
           >
-            <svg
-              className="h-5 w-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            Sign in
           </button>
-
-          {/* Heading */}
-          <h2
-            id="auth-modal-title"
-            className="text-2xl font-bold tracking-tight text-gray-900"
+          <button
+            className={`rounded-full px-3 py-1 text-sm ${
+              tab === "signup"
+                ? "bg-cyan-100 text-cyan-700"
+                : "text-gray-600 hover:bg-gray-100"
+            }`}
+            onClick={() => setTab("signup")}
           >
-            {header}
-          </h2>
-          <p className="mt-1 text-sm text-gray-600">
-            {tab === "signin"
-              ? "Sign in to continue."
-              : "Create an account to start listing or booking."}
-          </p>
+            Sign up
+          </button>
+        </div>
 
-          {/* Tabs */}
-          <div className="mt-4 inline-flex rounded-full bg-gray-100 p-1">
-            <button
-              className={`px-4 py-1.5 text-sm font-semibold rounded-full transition ${
-                tab === "signin"
-                  ? "bg-white text-cyan-700 shadow"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-              onClick={() => setTab("signin")}
+        {/* Alerts */}
+        {error && (
+          <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+        {info && (
+          <div className="mb-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            {info}
+          </div>
+        )}
+
+        {/* Email / Password form */}
+        <form onSubmit={handleEmailPassword} className="space-y-3">
+          <div>
+            <label
+              htmlFor="auth-email"
+              className="mb-1 block text-xs font-medium text-gray-600"
             >
-              Sign in
-            </button>
-            <button
-              className={`px-4 py-1.5 text-sm font-semibold rounded-full transition ${
-                tab === "signup"
-                  ? "bg-white text-cyan-700 shadow"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-              onClick={() => setTab("signup")}
-            >
-              Sign up
-            </button>
+              Email
+            </label>
+            <input
+              id="auth-email"
+              ref={firstFieldRef}
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-md border px-3 py-2 text-sm outline-none ring-cyan-500/0 focus:ring-2"
+              placeholder="you@example.com"
+            />
           </div>
 
-          {/* Error */}
-          {error && (
-            <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-
-          {/* Form */}
-          <form onSubmit={handleEmailAuth} className="mt-4 space-y-3">
-            <div>
-              <label
-                htmlFor="auth-email"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Email
-              </label>
-              <input
-                id="auth-email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:border-cyan-500 focus:ring-cyan-500"
-                placeholder="you@example.com"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="auth-password"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Password
-              </label>
+          <div>
+            <label
+              htmlFor="auth-password"
+              className="mb-1 block text-xs font-medium text-gray-600"
+            >
+              Password
+            </label>
+            <div className="relative">
               <input
                 id="auth-password"
-                type="password"
+                type={showPw ? "text" : "password"}
                 autoComplete={tab === "signin" ? "current-password" : "new-password"}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:border-cyan-500 focus:ring-cyan-500"
+                className="w-full rounded-md border px-3 py-2 pr-10 text-sm outline-none ring-cyan-500/0 focus:ring-2"
                 placeholder="••••••••"
               />
+              <button
+                type="button"
+                onClick={() => setShowPw((v) => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:bg-gray-100"
+                aria-label={showPw ? "Hide password" : "Show password"}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  className="h-5 w-5"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                >
+                  <path
+                    d={
+                      showPw
+                        ? "M3 3l18 18M10.584 10.587a2 2 0 002.829 2.829M9.88 4.887A9.956 9.956 0 0112 4c5.523 0 10 4.477 10 10 0 1.048-.161 2.057-.461 3M6.37 6.37C4.9 7.67 4 9.735 4 12c0 5.523 4.477 10 10 10 2.265 0 4.33-.9 5.63-2.37"
+                        : "M1 12S5 4 12 4s11 8 11 8-4 8-11 8S1 12 1 12zm11 3a3 3 0 110-6 3 3 0 010 6z"
+                    }
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
             </div>
-
-            <button
-              type="submit"
-              disabled={busy}
-              className="mt-1 inline-flex w-full items-center justify-center rounded-full border-2 border-cyan-500 px-4 py-2 text-sm font-semibold text-cyan-700 transition hover:bg-cyan-50 disabled:opacity-50"
-            >
-              {busy
-                ? "Please wait…"
-                : tab === "signin"
-                ? "Sign in"
-                : "Create account"}
-            </button>
-          </form>
-
-          {/* Divider */}
-          <div className="my-4 flex items-center gap-4">
-            <div className="h-px flex-1 bg-gray-200" />
-            <span className="text-xs uppercase tracking-wide text-gray-400">
-              or
-            </span>
-            <div className="h-px flex-1 bg-gray-200" />
           </div>
 
-          {/* OAuth */}
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => handleOAuth("google")}
-              disabled={busy}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            >
-              <svg viewBox="0 0 24 24" className="h-4 w-4">
-                <path
-                  fill="#EA4335"
-                  d="M12 10.2v3.6h5.1c-.2 1.2-1.5 3.5-5.1 3.5-3.1 0-5.7-2.6-5.7-5.8S8.9 5.7 12 5.7c1.8 0 2.9.8 3.5 1.4l2.4-2.3C16.7 3.4 14.6 2.6 12 2.6 6.9 2.6 2.8 6.7 2.8 11.8S6.9 21 12 21c6.3 0 8.7-4.4 8.7-6.6 0-.4 0-.7-.1-1H12z"
-                />
-              </svg>
-              Google
-            </button>
-            
-          </div>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="mt-1 w-full rounded-md bg-cyan-600 px-4 py-2 text-white shadow hover:bg-cyan-700 disabled:opacity-60"
+          >
+            {submitting ? "Please wait…" : primaryCta}
+          </button>
+        </form>
+
+        {/* Divider */}
+        <div className="my-4 flex items-center gap-3">
+          <div className="h-px flex-1 bg-gray-200" />
+          <span className="text-xs text-gray-500">OR</span>
+          <div className="h-px flex-1 bg-gray-200" />
         </div>
 
-        {/* Footer help */}
-        <div className="rounded-b-2xl border-t bg-gray-50 px-6 py-3 text-center text-xs text-gray-500">
-          By continuing you agree to our Terms & Privacy.
-        </div>
-
-        {/* last focusable sentinel */}
+        {/* Google OAuth */}
         <button
-          ref={lastFocusRef}
-          className="sr-only"
-          onFocus={() => firstFocusRef.current?.focus()}
-          aria-hidden="true"
-          tabIndex={0}
-        />
+          onClick={signInWithGoogle}
+          className="w-full rounded-md border px-4 py-2 text-sm font-medium hover:bg-gray-50"
+        >
+          Continue with Google
+        </button>
+
+        {/* Footer note */}
+        <p className="mt-4 text-center text-xs text-gray-500">
+          By continuing you agree to our Terms &amp; Privacy.
+        </p>
       </div>
     </div>
   );
