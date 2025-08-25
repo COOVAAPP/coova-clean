@@ -1,73 +1,62 @@
 // components/Header.jsx
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// ⬇️ Adjust these paths if your files live elsewhere
 import AuthModal from "./AuthModal.jsx";
 import useRequireAuth from "../lib/useRequireAuth";
-
-/**
- * Expected `useRequireAuth` contract (what this Header uses):
- *   const {
- *     user,                     // object | null
- *     requireAuth,              // (cb?: () => void) => Promise<void>
- *     authOpen, setAuthOpen,    // boolean, (v:boolean)=>void
- *     authTab, setAuthTab,      // "signin" | "signup"
- *   } = useRequireAuth();
- *
- * If your hook exposes slightly different names, update in the two sections marked:  // NOTE: hook field names
- */
 
 export default function Header() {
   const pathname = usePathname();
 
-  // ===== Auth state & helpers (from your hook) =====
-  const {
-    user,
-    requireAuth,
-    authOpen,
-    setAuthOpen,
-    authTab,
-    setAuthTab,
-  } = useRequireAuth(); // NOTE: hook field names
+  // ===== Auth modal state =====
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authTab, setAuthTab] = useState("signin"); // "signin" | "signup"
+  const [authReturnTo, setAuthReturnTo] = useState("/"); // where to go after login
 
-  // ===== Local UI state =====
+  // ===== Auth helpers (session + guard) =====
+  const { user, requireAuth, signOut } = useRequireAuth({
+    onRequire: (tab = "signin") => {
+      // fallback handler if requireAuth() is called without a custom handler
+      setAuthTab(tab);
+      setAuthOpen(true);
+    },
+  });
+
+  // ===== UI state =====
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  // Close mobile nav on route change
   useEffect(() => setMobileOpen(false), [pathname]);
 
-  // Active link helper
   const isActive = useCallback(
     (href) => (pathname === href ? "text-white" : "text-white/80"),
     [pathname]
   );
 
-  // Open Auth modal and optionally select a tab
-  const openAuth = useCallback(
-    (tab = "signin") => {
-      if (typeof setAuthTab === "function") setAuthTab(tab);
-      if (typeof setAuthOpen === "function") setAuthOpen(true);
-    },
-    [setAuthOpen, setAuthTab]
-  );
+  const openAuth = useCallback((tab = "signin", returnTo = "/") => {
+    setAuthTab(tab);
+    setAuthReturnTo(returnTo);
+    setAuthOpen(true);
+  }, []);
 
-  // Auth-guarded “List your space”
+  // Guarded List flow: if not authed → open modal (signup tab) with returnTo,
+  // otherwise go straight to create page.
   const onListYourSpace = useCallback(async () => {
-    await requireAuth?.(async () => {
-      // User is authenticated → continue
-      window.location.href = "/list/create";
-    });
-  }, [requireAuth]);
+    const next = "/list/create";
+    await requireAuth(
+      () => {
+        window.location.href = next;
+      },
+      "signup" // if not authed, open modal on signup tab
+    );
+    // Also set returnTo proactively, in case the hook's onRequire runs:
+    setAuthReturnTo(next);
+    setAuthOpen((o) => (user ? o : true));
+    setAuthTab("signup");
+  }, [requireAuth, user]);
 
-  // Sign in / Sign up button label
-  const authButtonLabel = useMemo(() => {
-    if (user) return "Account";
-    return "Sign in / Sign up";
-  }, [user]);
+  const authButtonLabel = user ? "Account" : "Sign in / Sign up";
 
   return (
     <>
@@ -75,7 +64,7 @@ export default function Header() {
       <header className="sticky top-0 z-40 bg-cyan-500/90 backdrop-blur supports-[backdrop-filter]:bg-cyan-500/70 border-b border-white/10">
         <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-14 items-center justify-between">
-            {/* Left: Brand */}
+            {/* Left: Brand + mobile menu */}
             <div className="flex items-center gap-3">
               <button
                 className="lg:hidden inline-flex items-center justify-center p-2 rounded-md text-white/90 hover:text-white hover:bg-white/10 outline-none"
@@ -112,28 +101,27 @@ export default function Header() {
                 Browse
               </Link>
 
-              <Link
-                href="/list/create"
+              <button
+                onClick={onListYourSpace}
                 className="rounded-full border-2 border-white/80 px-4 py-1.5 text-sm font-semibold text-white hover:bg-white/10 transition"
                 aria-label="List your space"
               >
                 List your space
-              </Link>
+              </button>
             </nav>
 
-            {/* Right: auth */}
+            {/* Right: auth / dashboard */}
             <div className="flex items-center gap-3">
               {!user ? (
                 <div className="hidden sm:flex items-center gap-2">
                   <button
-                    onClick={() => openAuth("signin")}
+                    onClick={() => openAuth("signin", pathname || "/")}
                     className="rounded-full border-2 border-white px-4 py-1.5 text-sm font-semibold text-white hover:bg-white/10 transition"
                   >
                     {authButtonLabel}
                   </button>
                 </div>
               ) : (
-                // When authenticated you might render your existing UserMenu here
                 <Link
                   href="/dashboard"
                   className="rounded-full border-2 border-white px-4 py-1.5 text-sm font-semibold text-white hover:bg-white/10 transition"
@@ -168,13 +156,13 @@ export default function Header() {
               {!user ? (
                 <div className="mt-1 grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => openAuth("signin")}
+                    onClick={() => openAuth("signin", pathname || "/")}
                     className="rounded-md bg-white/10 px-3 py-2 text-sm font-semibold text-white hover:bg-white/20"
                   >
                     Sign in
                   </button>
                   <button
-                    onClick={() => openAuth("signup")}
+                    onClick={() => openAuth("signup", pathname || "/")}
                     className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-cyan-700 hover:bg-white/90"
                   >
                     Sign up
@@ -193,11 +181,12 @@ export default function Header() {
         )}
       </header>
 
-      {/* Auth modal (renders anywhere) */}
+      {/* Auth modal (returns to /list/create when opened from the CTA) */}
       <AuthModal
-        open={!!authOpen}                // NOTE: prop names – adjust if your modal uses `isOpen`
-        onClose={() => setAuthOpen?.(false)}
-        defaultTab={authTab || "signin"} // NOTE: prop name – adjust if your modal uses `initialTab`
+        isOpen={authOpen}
+        onClose={() => setAuthOpen(false)}
+        defaultTab={authTab}
+        returnTo={authReturnTo}
       />
     </>
   );

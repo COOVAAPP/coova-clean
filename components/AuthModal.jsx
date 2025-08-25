@@ -1,292 +1,323 @@
 // components/AuthModal.jsx
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "../lib/supabaseClient"; // ✅ your singleton browser client
-
 /**
- * Props:
- *  - open: boolean (controls visibility)
- *  - onClose: () => void
- *  - defaultTab?: "signin" | "signup"
+ * Full Auth Modal
+ * - Sign in / Sign up tabs
+ * - Email + Password auth
+ * - Google OAuth (Apple/GitHub easy to re-enable)
+ * - Overlay click & ESC to close
+ * - Error/Loading states
+ * - Works in Next.js App Router (client-only)
  */
-export default function AuthModal({ open, onClose, defaultTab = "signin" }) {
-  // tabs
-  const [tab, setTab] = useState(defaultTab); // "signin" | "signup"
-  useEffect(() => setTab(defaultTab), [defaultTab]);
 
-  // form
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+
+export default function AuthModal({
+  isOpen = false,
+  onClose = () => {},
+  defaultTab = "signin", // "signin" | "signup"
+}) {
+  const supabase = useMemo(() => createClientComponentClient(), []);
+  const [tab, setTab] = useState(defaultTab);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPw, setShowPw] = useState(false);
-
-  // ui state
-  const [submitting, setSubmitting] = useState(false);
+  const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
-
-  // for focus trapping
+  const modalRef = useRef(null);
   const firstFieldRef = useRef(null);
 
+  // keep tab in sync if parent changes default tab
+  useEffect(() => setTab(defaultTab), [defaultTab]);
+
+  // focus first field on open
   useEffect(() => {
-    if (open) {
-      // reset transient messages whenever modal reopens
-      setError("");
-      setInfo("");
-      // autofocus first field
-      setTimeout(() => firstFieldRef.current?.focus(), 0);
-    }
-  }, [open]);
+    if (!isOpen) return;
+    const t = setTimeout(() => firstFieldRef.current?.focus(), 50);
+    return () => clearTimeout(t);
+  }, [isOpen, tab]);
 
-  const close = useCallback(() => {
-    if (submitting) return;
-    onClose?.();
-  }, [onClose, submitting]);
+  // close on ESC
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, onClose]);
 
-  // ---- OAuth: Google -------------------------------------------------------
-  const signInWithGoogle = useCallback(async () => {
+  const resetMessages = () => {
     setError("");
     setInfo("");
+  };
+
+  const validate = useCallback(() => {
+    if (!email) return "Please enter your email.";
+    if (!/^\S+@\S+\.\S+$/.test(email)) return "Please enter a valid email.";
+    if (!password) return "Please enter your password.";
+    if (tab === "signup" && password.length < 6)
+      return "Password must be at least 6 characters.";
+    if (tab === "signup" && confirm !== password)
+      return "Passwords do not match.";
+    return "";
+  }, [email, password, confirm, tab]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    resetMessages();
+
+    const v = validate();
+    if (v) {
+      setError(v);
+      return;
+    }
+
+    setLoading(true);
     try {
-      const origin =
-        typeof window !== "undefined" ? window.location.origin : "";
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
+      if (tab === "signin") {
+        const { error: err } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (err) throw err;
+        onClose(); // success
+      } else {
+        const { error: err } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
+        });
+        if (err) throw err;
+        setInfo("Check your email to confirm your account.");
+      }
+    } catch (err) {
+      setError(err?.message || "Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOAuth = async (provider) => {
+    resetMessages();
+    setOauthLoading(true);
+    try {
+      const { error: err } = await supabase.auth.signInWithOAuth({
+        provider,
         options: {
-          redirectTo: `${origin}/`,
-          queryParams: { prompt: "select_account" },
+          redirectTo: `${window.location.origin}/auth/callback`,
         },
       });
-      if (error) throw error;
-      // Redirect happens automatically; no need to close here.
-    } catch (e) {
-      console.error(e);
-      setError(e?.message || "Google sign-in failed.");
+      if (err) throw err;
+      // redirect handled by provider; modal can close
+      // (leaving it open is fine too; it will be replaced by redirect)
+    } catch (err) {
+      setError(err?.message || "OAuth sign-in failed.");
+    } finally {
+      setOauthLoading(false);
     }
-  }, []);
+  };
 
-  // ---- Email/Password flows -----------------------------------------------
-  const handleEmailPassword = useCallback(
-    async (e) => {
-      e?.preventDefault?.();
-      setSubmitting(true);
-      setError("");
-      setInfo("");
-
-      try {
-        if (tab === "signin") {
-          const { error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-          });
-          if (error) throw error;
-          // success — close modal
-          close();
-        } else {
-          // signup
-          const { error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              emailRedirectTo:
-                typeof window !== "undefined"
-                  ? `${window.location.origin}/`
-                  : undefined,
-            },
-          });
-          if (error) throw error;
-          setInfo(
-            "Check your inbox to confirm your email, then sign in to continue."
-          );
-          // keep modal open so they can see the message
-        }
-      } catch (e) {
-        console.error(e);
-        setError(e?.message || "Authentication failed.");
-      } finally {
-        setSubmitting(false);
-      }
-    },
-    [tab, email, password, close]
-  );
-
-  // ---- Derived UI ----------------------------------------------------------
-  const title = tab === "signin" ? "Welcome back" : "Create your account";
-  const primaryCta = tab === "signin" ? "Sign in" : "Create account";
-
-  // ---- Render nothing if closed -------------------------------------------
-  if (!open) return null;
+  if (!isOpen) return null;
 
   return (
     <div
-      role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[100] flex items-center justify-center"
+      role="dialog"
+      className="fixed inset-0 z-50 flex items-center justify-center"
     >
       {/* Backdrop */}
-      <button
-        aria-label="Close"
-        onClick={close}
-        className="absolute inset-0 bg-black/50 transition-opacity"
+      <div
+        className="absolute inset-0 bg-black/50"
+        onClick={onClose}
+        aria-hidden="true"
       />
 
       {/* Modal */}
-      <div className="relative w-[92%] max-w-md rounded-2xl bg-white p-5 shadow-xl">
-        {/* Close button */}
+      <div
+        ref={modalRef}
+        className="relative z-10 w-[92vw] max-w-md rounded-xl bg-white shadow-xl"
+      >
+        {/* Close */}
         <button
-          onClick={close}
-          className="absolute right-3 top-3 rounded p-1 text-gray-400 hover:bg-gray-100"
-          aria-label="Close authentication dialog"
+          aria-label="Close"
+          onClick={onClose}
+          className="absolute right-3 top-3 rounded p-2 text-gray-500 hover:bg-gray-100"
         >
-          <svg viewBox="0 0 20 20" className="h-5 w-5" fill="currentColor">
-            <path
-              fillRule="evenodd"
-              d="M10 8.586 4.293 2.879 2.879 4.293 8.586 10l-5.707 5.707 1.414 1.414L10 11.414l5.707 5.707 1.414-1.414L11.414 10l5.707-5.707-1.414-1.414L10 8.586z"
-              clipRule="evenodd"
-            />
-          </svg>
+          ✕
         </button>
 
-        {/* Title */}
-        <h3 className="mb-1 text-xl font-semibold text-gray-900">{title}</h3>
-        <p className="mb-4 text-sm text-gray-500">
-          {tab === "signin"
-            ? "Sign in to continue."
-            : "Use email & password to get started."}
-        </p>
-
-        {/* Tabs */}
-        <div className="mb-4 flex gap-2">
-          <button
-            className={`rounded-full px-3 py-1 text-sm ${
-              tab === "signin"
-                ? "bg-cyan-100 text-cyan-700"
-                : "text-gray-600 hover:bg-gray-100"
-            }`}
-            onClick={() => setTab("signin")}
-          >
-            Sign in
-          </button>
-          <button
-            className={`rounded-full px-3 py-1 text-sm ${
-              tab === "signup"
-                ? "bg-cyan-100 text-cyan-700"
-                : "text-gray-600 hover:bg-gray-100"
-            }`}
-            onClick={() => setTab("signup")}
-          >
-            Sign up
-          </button>
+        {/* Header */}
+        <div className="px-6 pt-6 pb-3">
+          <h2 className="text-2xl font-bold">
+            {tab === "signin" ? "Welcome back" : "Create your account"}
+          </h2>
+          <p className="mt-1 text-sm text-gray-500">
+            {tab === "signin"
+              ? "Sign in to continue."
+              : "Sign up to start listing or booking."}
+          </p>
         </div>
 
-        {/* Alerts */}
-        {error && (
-          <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-        {info && (
-          <div className="mb-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-            {info}
-          </div>
-        )}
-
-        {/* Email / Password form */}
-        <form onSubmit={handleEmailPassword} className="space-y-3">
-          <div>
-            <label
-              htmlFor="auth-email"
-              className="mb-1 block text-xs font-medium text-gray-600"
-            >
-              Email
-            </label>
-            <input
-              id="auth-email"
-              ref={firstFieldRef}
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-md border px-3 py-2 text-sm outline-none ring-cyan-500/0 focus:ring-2"
-              placeholder="you@example.com"
-            />
+        {/* Tabs */}
+        <div className="px-6">
+          <div className="mb-4 inline-flex rounded-full bg-gray-100 p-1">
+            <TabButton active={tab === "signin"} onClick={() => setTab("signin")}>
+              Sign in
+            </TabButton>
+            <TabButton active={tab === "signup"} onClick={() => setTab("signup")}>
+              Sign up
+            </TabButton>
           </div>
 
-          <div>
-            <label
-              htmlFor="auth-password"
-              className="mb-1 block text-xs font-medium text-gray-600"
-            >
-              Password
-            </label>
-            <div className="relative">
+          {/* Alerts */}
+          {error && (
+            <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+          {info && (
+            <div className="mb-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+              {info}
+            </div>
+          )}
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="px-6 pb-2">
+          <label className="mb-2 block text-sm font-medium text-gray-700">
+            Email
+          </label>
+          <input
+            ref={firstFieldRef}
+            type="email"
+            autoComplete="email"
+            className="mb-3 w-full rounded-md border px-3 py-2 outline-none ring-brand-500 focus:ring"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+          />
+
+          <label className="mb-2 mt-1 block text-sm font-medium text-gray-700">
+            Password
+          </label>
+          <input
+            type="password"
+            autoComplete={tab === "signin" ? "current-password" : "new-password"}
+            className="mb-3 w-full rounded-md border px-3 py-2 outline-none ring-brand-500 focus:ring"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+          />
+
+          {tab === "signup" && (
+            <>
+              <label className="mb-2 mt-1 block text-sm font-medium text-gray-700">
+                Confirm password
+              </label>
               <input
-                id="auth-password"
-                type={showPw ? "text" : "password"}
-                autoComplete={tab === "signin" ? "current-password" : "new-password"}
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-md border px-3 py-2 pr-10 text-sm outline-none ring-cyan-500/0 focus:ring-2"
+                type="password"
+                autoComplete="new-password"
+                className="mb-3 w-full rounded-md border px-3 py-2 outline-none ring-brand-500 focus:ring"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
                 placeholder="••••••••"
               />
-              <button
-                type="button"
-                onClick={() => setShowPw((v) => !v)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:bg-gray-100"
-                aria-label={showPw ? "Hide password" : "Show password"}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  className="h-5 w-5"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                >
-                  <path
-                    d={
-                      showPw
-                        ? "M3 3l18 18M10.584 10.587a2 2 0 002.829 2.829M9.88 4.887A9.956 9.956 0 0112 4c5.523 0 10 4.477 10 10 0 1.048-.161 2.057-.461 3M6.37 6.37C4.9 7.67 4 9.735 4 12c0 5.523 4.477 10 10 10 2.265 0 4.33-.9 5.63-2.37"
-                        : "M1 12S5 4 12 4s11 8 11 8-4 8-11 8S1 12 1 12zm11 3a3 3 0 110-6 3 3 0 010 6z"
-                    }
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
+            </>
+          )}
 
           <button
             type="submit"
-            disabled={submitting}
-            className="mt-1 w-full rounded-md bg-cyan-600 px-4 py-2 text-white shadow hover:bg-cyan-700 disabled:opacity-60"
+            disabled={loading}
+            className="mt-2 w-full rounded-full bg-cyan-500 px-4 py-2.5 font-semibold text-white transition hover:bg-cyan-600 disabled:opacity-60"
           >
-            {submitting ? "Please wait…" : primaryCta}
+            {loading ? (tab === "signin" ? "Signing in…" : "Creating…") : (tab === "signin" ? "Sign in" : "Create account")}
           </button>
+
+          <div className="my-3 text-center text-xs text-gray-500">
+            By continuing you agree to our <a href="/terms" className="underline">Terms</a> &nbsp;and&nbsp;
+            <a href="/privacy" className="underline">Privacy</a>.
+          </div>
         </form>
 
         {/* Divider */}
-        <div className="my-4 flex items-center gap-3">
+        <div className="flex items-center px-6 py-2">
           <div className="h-px flex-1 bg-gray-200" />
-          <span className="text-xs text-gray-500">OR</span>
+          <span className="px-3 text-xs uppercase tracking-wider text-gray-400">
+            or
+          </span>
           <div className="h-px flex-1 bg-gray-200" />
         </div>
 
-        {/* Google OAuth */}
-        <button
-          onClick={signInWithGoogle}
-          className="w-full rounded-md border px-4 py-2 text-sm font-medium hover:bg-gray-50"
-        >
-          Continue with Google
-        </button>
+        {/* OAuth */}
+        <div className="px-6 pb-6">
+          <button
+            disabled={oauthLoading}
+            onClick={() => handleOAuth("google")}
+            className="flex w-full items-center justify-center gap-2 rounded-full border px-4 py-2.5 font-medium hover:bg-gray-50 disabled:opacity-60"
+          >
+            <GoogleIcon />
+            Continue with Google
+          </button>
 
-        {/* Footer note */}
-        <p className="mt-4 text-center text-xs text-gray-500">
-          By continuing you agree to our Terms &amp; Privacy.
-        </p>
+          {/* To re-enable later: Apple/GitHub */}
+          {/* 
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button onClick={() => handleOAuth("github")} className="...">GitHub</button>
+            <button onClick={() => handleOAuth("apple")} className="...">Apple</button>
+          </div>
+          */}
+        </div>
       </div>
     </div>
+  );
+}
+
+/* --------------------- helpers --------------------- */
+
+function TabButton({ active, onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "rounded-full px-4 py-1.5 text-sm font-semibold transition",
+        active ? "bg-white text-gray-900 shadow" : "text-gray-500 hover:text-gray-700",
+      ].join(" ")}
+    >
+      {children}
+    </button>
+  );
+}
+
+function GoogleIcon(props) {
+  return (
+    <svg viewBox="0 0 48 48" width="18" height="18" {...props}>
+      <path
+        fill="#FFC107"
+        d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12
+          s5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C33.202,6.053,28.791,4,24,4C12.955,4,4,12.955,4,24
+          s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"
+      />
+      <path
+        fill="#FF3D00"
+        d="M6.306,14.691l6.571,4.819C14.655,16.108,18.961,13,24,13c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657
+          C33.202,6.053,28.791,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"
+      />
+      <path
+        fill="#4CAF50"
+        d="M24,44c4.717,0,9.005-1.809,12.26-4.756l-5.657-5.657C28.595,35.091,26.393,36,24,36
+          c-5.202,0-9.62-3.318-11.277-7.953l-6.528,5.026C9.5,39.556,16.227,44,24,44z"
+      />
+      <path
+        fill="#1976D2"
+        d="M43.611,20.083H42V20H24v8h11.303c-0.79,2.229-2.232,4.162-4.04,5.587l5.657,5.657
+          C38.689,36.491,44,31,44,24C44,22.659,43.862,21.35,43.611,20.083z"
+      />
+    </svg>
   );
 }
