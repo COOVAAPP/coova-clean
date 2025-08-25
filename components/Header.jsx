@@ -112,13 +112,13 @@ export default function Header() {
                 Browse
               </Link>
 
-              <button
-                onClick={onListYourSpace}
-                className="text-sm font-semibold text-white/90 hover:text-white transition"
+              <Link
+                href="/list/create"
+                className="rounded-full border-2 border-white/80 px-4 py-1.5 text-sm font-semibold text-white hover:bg-white/10 transition"
                 aria-label="List your space"
               >
                 List your space
-              </button>
+              </Link>
             </nav>
 
             {/* Right: auth */}

@@ -2,67 +2,66 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
-import CreateListingClient from "@/components/CreateListingClient";
+import { useSearchParams, useRouter } from "next/navigation";
+import CreateListingClient from "@/components/CreateListingClient.jsx"; // keep your existing component
+import { createClient } from "@supabase/supabase-js";
+
+// browser client
+const supabase =
+  typeof window !== "undefined"
+    ? createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      )
+    : null;
 
 export default function CreateListingPage() {
   const router = useRouter();
-  const search = useSearchParams();
-  const [ready, setReady] = useState(false);
+  const [status, setStatus] = useState<"checking" | "authed" | "guest">("checking");
 
   useEffect(() => {
     let mounted = true;
-
     (async () => {
+      if (!supabase) return;
+
+      // get session (fast, local)
       const { data } = await supabase.auth.getSession();
+      const user = data?.session?.user ?? null;
+
       if (!mounted) return;
 
-      if (!data.session) {
-        // open login modal on this page and come back here after login
-        const url = new URL(window.location.href);
-        url.searchParams.set("auth", "1");
-        url.searchParams.set("next", "/list/create");
-        router.replace(url.pathname + "?" + url.searchParams.toString());
+      if (!user) {
+        setStatus("guest");
+        // send them to login with a return path
+        const next = encodeURIComponent("/list/create");
+        router.replace(`/login?next=${next}`);
       } else {
-        setReady(true);
+        setStatus("authed");
       }
     })();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (!mounted) return;
-      if (session) {
-        setReady(true);
-        // clean up ?auth parameter
-        const url = new URL(window.location.href);
-        url.searchParams.delete("auth");
-        router.replace(url.pathname + "?" + url.searchParams.toString());
+    // if they log in on this tab (rare), move forward
+    const { data: sub } = supabase?.auth.onAuthStateChange((evt, session) => {
+      if (session?.user) {
+        setStatus("authed");
+        router.replace("/list/create");
       }
-    });
+    }) ?? { data: null };
 
     return () => {
       mounted = false;
-      sub.subscription.unsubscribe();
+      sub?.subscription?.unsubscribe?.();
     };
-  }, [router, search]);
+  }, [router]);
 
-  if (!ready) {
+  if (status !== "authed") {
     return (
-      <main className="max-w-6xl mx-auto px-4 py-10">
-        <h1 className="text-2xl font-extrabold">Create Listing</h1>
-        <p className="mt-4">Loading…</p>
+      <main className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-600">Checking your session…</p>
       </main>
     );
   }
 
-  return (
-    <main className="max-w-6xl mx-auto px-4 py-10">
-      <h1 className="text-2xl font-extrabold text-cyan-500 tracking-tight">
-        Create Listing
-      </h1>
-      <div className="mt-8">
-        <CreateListingClient />
-      </div>
-    </main>
-  );
+  // ✅ user is authenticated – render your existing flow
+  return <CreateListingClient />;
 }
