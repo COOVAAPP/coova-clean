@@ -98,7 +98,6 @@ export default function Header() {
     </>
   );
 }// components/Header.jsx
-"use client";
 
 import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import Link from "next/link";
