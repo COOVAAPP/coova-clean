@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-
+import { supabase } from "../lib/supabaseClient";
 /**
  * Props:
  *  - open: boolean
