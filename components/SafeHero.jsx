@@ -53,10 +53,10 @@ export default function SafeHero({
       />
 
       {/* Gradient/overlay */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/0 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/0 pointer-events-none z-10" />
 
       {/* Content */}
-      <div className="absolute inset-0 flex items-center pointer-events-none">
+      <div className="absolute inset-0 flex items-center pointer-events-none z-20">
         <div className="container-page pointer-events-auto">
           <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white">
             Welcome to <span className="text-cyan-500">COOVA</span>
@@ -69,13 +69,13 @@ export default function SafeHero({
           <div className="mt-6 flex flex-col sm:flex-row gap-4">
             <a
               href="/browse"
-              className="inline-flex items-center rounded-full border-2 border-cyan-500 bg-white px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-cyan-50"
+              className="inline-flex items-center rounded-full border-2 border-cyan-500 bg-white px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-cyan-50 cursor-pointer relative z-30"
             >
               Explore Now
             </a>
             <a
-              href="/list"
-              className="inline-flex items-center rounded-full border-2 border-cyan-500 bg-white px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-cyan-50"
+              href="/list/create"
+              className="inline-flex items-center rounded-full border-2 border-cyan-500 bg-white px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-cyan-50 cursor-pointer relative z-30"
             >
               List Your Space
             </a>
