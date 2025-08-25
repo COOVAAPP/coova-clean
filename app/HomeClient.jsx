@@ -2,19 +2,19 @@
 "use client";
 
 import Link from "next/link";
-import SafeHero from "../components/SafeHero.jsx"; // 👈 IMPORTANT: one level up
+import SafeHero from "../components/SafeHero.jsx";
 
 export default function HomeClient() {
   return (
     <main className="min-h-screen flex flex-col gap-12">
-      {/* HERO (full bleed, uses your working SafeHero component) */}
+      {/* HERO (full bleed) */}
       <SafeHero
         images={[
-          // put your 4 public Supabase URLs here (the ones that 200 in the browser)
-          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg1.jpg",
-          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg2.jpg",
-          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg3.jpg",
-          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg4.jpg",
+          // ⬇️ replace these with your 4 working public Supabase URLs
+        "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg1.jpg",
+      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg2.jpg",
+      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg3.jpg",
+      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg4.jpg",
         ]}
       />
 
@@ -80,7 +80,9 @@ export default function HomeClient() {
 
       {/* CTA */}
       <section className="bg-brand-600 py-12 text-cyan-50">
-        <h2 className="text-center text-3xl font-bold">Become a Host and Earn with Your Space</h2>
+        <h2 className="text-center text-3xl font-bold">
+          Become a Host and Earn with Your Space
+        </h2>
         <p className="mx-auto mt-2 max-w-2xl text-center text-cyan-100">
           List your pool, backyard, car, or creative venue space and start generating income today.
         </p>

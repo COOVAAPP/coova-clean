@@ -1,98 +1,87 @@
-// app/HomeClient.jsx
+// components/SafeHero.jsx
 "use client";
 
-import Link from "next/link";
-import SafeHero from "../components/SafeHero.jsx"; // one level up from /app
+import { useEffect, useMemo, useRef, useState } from "react";
 
-export default function HomeClient() {
+export default function SafeHero({
+  images = [],
+  intervalMs = 4000,
+  className = "",
+}) {
+  // Fallback single image if none provided (replace with a safe public URL if you want)
+  const defaults = useMemo(
+    () => [
+      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg1.jpg",
+      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg2.jpg",
+      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg3.jpg",
+      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg4.jpg",,
+    ],
+    []
+  );
+
+  const pics = images.length ? images : defaults;
+
+  // Preload on the client to avoid flashes
+  useEffect(() => {
+    pics.forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
+  }, [pics]);
+
+  const [idx, setIdx] = useState(0);
+  const hoverRef = useRef(false);
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      if (!hoverRef.current) setIdx((i) => (i + 1) % pics.length);
+    }, intervalMs);
+    return () => clearInterval(t);
+  }, [pics.length, intervalMs]);
+
+  const bg = { backgroundImage: `url('${pics[idx]}')` };
+
   return (
-    <main className="min-h-screen flex flex-col gap-12">
-      {/* HERO */}
-      <SafeHero
-        images={[
-          // ✅ use the 4 public URLs that return 200 in the browser
-          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg1.jpg",
-          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg2.jpg",
-          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg3.jpg",
-          "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg4.jpg",
-        ]}
+    <section className={`relative w-full overflow-clip ${className}`}>
+      {/* The image layer */}
+      <div
+        className="h-[420px] sm:h-[520px] lg:h-[640px] bg-center bg-cover transition-opacity duration-700"
+        style={bg}
+        onMouseEnter={() => (hoverRef.current = true)}
+        onMouseLeave={() => (hoverRef.current = false)}
+        aria-label="Welcome to COOVA hero"
       />
 
-      {/* CATEGORY CARDS */}
-      <section className="mx-auto max-w-6xl px-4 py-12">
-        <h2 className="mb-8 text-center text-2xl font-bold text-gray-800">
-          Explore Categories
-        </h2>
+      {/* Gradient/overlay */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/0 pointer-events-none" />
 
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 justify-items-center">
-          {/* Pools & Venues */}
-          <a
-            href="/browse?type=pools"
-            className="group relative overflow-hidden rounded-2xl shadow-lg transition hover:shadow-xl"
-            aria-label="Pools & Venues"
-          >
-            <img
-              src="https://opnqgloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/pools.jpg"
-              alt="Pools & Venues"
-              className="h-[240px] w-[320px] object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-            <span className="absolute inset-0 bg-black/40" />
-            <span className="absolute inset-x-0 bottom-0 p-4 text-center text-white text-lg font-semibold">
-              Pools & Venues
-            </span>
-          </a>
+      {/* Content */}
+      <div className="absolute inset-0 flex items-center">
+        <div className="container-page">
+          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white">
+            Welcome to <span className="text-cyan-500">COOVA</span>
+          </h1>
+          <p className="mt-2 max-w-2xl text-white/90">
+            Discover luxury pools, unique venues, and cars — or become a host and earn with your
+            space.
+          </p>
 
-          {/* Luxury Cars */}
-          <a
-            href="/browse?type=cars"
-            className="group relative overflow-hidden rounded-2xl shadow-lg transition hover:shadow-xl"
-            aria-label="Luxury Cars"
-          >
-            <img
-              src="https://opnqgloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/cars.jpg"
-              alt="Luxury Cars"
-              className="h-[240px] w-[320px] object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-            <span className="absolute inset-0 bg-black/40" />
-            <span className="absolute inset-x-0 bottom-0 p-4 text-center text-white text-lg font-semibold">
-              Luxury Cars
-            </span>
-          </a>
-
-          {/* Unique Spaces */}
-          <a
-            href="/browse?type=spaces"
-            className="group relative overflow-hidden rounded-2xl shadow-lg transition hover:shadow-xl"
-            aria-label="Unique Spaces"
-          >
-            <img
-              src="https://opnqgloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/categories/spaces.jpg"
-              alt="Unique Spaces"
-              className="h-[240px] w-[320px] object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-            <span className="absolute inset-0 bg-black/40" />
-            <span className="absolute inset-x-0 bottom-0 p-4 text-center text-white text-lg font-semibold">
-              Unique Spaces
-            </span>
-          </a>
+          <div className="mt-6 flex flex-col sm:flex-row gap-4">
+            <a
+              href="/browse"
+              className="inline-flex items-center rounded-full border-2 border-cyan-500 bg-white px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-cyan-50"
+            >
+              Explore Now
+            </a>
+            <a
+              href="/list"
+              className="inline-flex items-center rounded-full border-2 border-cyan-500 bg-white px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-cyan-50"
+            >
+              List Your Space
+            </a>
+          </div>
         </div>
-      </section>
-
-      {/* CTA */}
-      <section className="bg-brand-600 py-12 text-cyan-50">
-        <h2 className="text-center text-3xl font-bold">Become a Host and Earn with Your Space</h2>
-        <p className="mx-auto mt-2 max-w-2xl text-center text-cyan-100">
-          List your pool, backyard, car, or creative venue space and start generating income today.
-        </p>
-        <div className="mt-6 text-center">
-          <a
-            href="/list"
-            className="inline-block rounded-full bg-white px-6 py-3 font-semibold text-brand-600 shadow hover:bg-gray-100"
-          >
-            Start Hosting
-          </a>
-        </div>
-      </section>
-    </main>
+      </div>
+    </section>
   );
 }
