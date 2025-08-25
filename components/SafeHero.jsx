@@ -45,7 +45,7 @@ export default function SafeHero({
     <section className={`relative w-full overflow-clip ${className}`}>
       {/* The image layer */}
       <div
-        className="h-[420px] sm:h-[520px] lg:h-[640px] bg-center bg-cover transition-opacity duration-700"
+        className="h-[420px] sm:h-[520px] lg:h-[640px] bg-center bg-cover transition-opacity duration-700 pointer-events-none"
         style={bg}
         onMouseEnter={() => (hoverRef.current = true)}
         onMouseLeave={() => (hoverRef.current = false)}
@@ -56,8 +56,8 @@ export default function SafeHero({
       <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/0 pointer-events-none" />
 
       {/* Content */}
-      <div className="absolute inset-0 flex items-center">
-        <div className="container-page">
+      <div className="absolute inset-0 flex items-center pointer-events-none">
+        <div className="container-page pointer-events-auto">
           <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white">
             Welcome to <span className="text-cyan-500">COOVA</span>
           </h1>

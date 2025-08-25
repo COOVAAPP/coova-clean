@@ -65,7 +65,7 @@ export default function Header() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-cyan-500/90 backdrop-blur supports-[backdrop-filter]:bg-cyan-500/70 border-b border-white/10">
+      <header className="sticky top-0 z-[200] pointer-events-auto bg-cyan-500/90 backdrop-blur supports-[backdrop-filter]:bg-cyan-500/70 border-b border-white/10">
         <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-14 items-center justify-between">
             {/* Left: brand + mobile menu */}
@@ -97,7 +97,7 @@ export default function Header() {
               {/* IMPORTANT: use a button so we can auth-gate */}
               <button
                 onClick={onListYourSpace}
-                className="rounded-full border-2 border-white/80 px-4 py-1.5 text-sm font-semibold text-white hover:bg-white/10 transition"
+                className="cursor-pointer rounded-full border-2 border-white/80 px-4 py-1.5 text-sm font-semibold text-white hover:bg-white/10 transition"
                 aria-label="List your space"
                 type="button"
               >
@@ -111,7 +111,7 @@ export default function Header() {
                 <div className="hidden sm:flex items-center gap-2">
                   <button
                     onClick={() => openAuth("signin")}
-                    className="rounded-full border-2 border-white px-4 py-1.5 text-sm font-semibold text-white hover:bg-white/10 transition"
+                    className="cursor-pointer rounded-full border-2 border-white px-4 py-1.5 text-sm font-semibold text-white hover:bg-white/10 transition"
                   >
                     {authButtonLabel}
                   </button>
@@ -119,7 +119,7 @@ export default function Header() {
               ) : (
                 <Link
                   href="/dashboard"
-                  className="rounded-full border-2 border-white px-4 py-1.5 text-sm font-semibold text-white hover:bg-white/10 transition"
+                  className="cursor-pointer rounded-full border-2 border-white px-4 py-1.5 text-sm font-semibold text-white hover:bg-white/10 transition"
                 >
                   {authButtonLabel}
                 </Link>
