@@ -13,17 +13,11 @@ export default function Header() {
 
   // ===== Auth modal state =====
   const [authOpen, setAuthOpen] = useState(false);
-  const [authTab, setAuthTab] = useState("signin"); // "signin" | "signup"
-  const [authReturnTo, setAuthReturnTo] = useState("/"); // where to go after login
+  const [authTab, setAuthTab] = useState("signin");
+  const [authReturnTo, setAuthReturnTo] = useState("/");
 
-  // ===== Auth helpers (session + guard) =====
-  const { user, requireAuth, signOut } = useRequireAuth({
-    onRequire: (tab = "signin") => {
-      // fallback handler if requireAuth() is called without a custom handler
-      setAuthTab(tab);
-      setAuthOpen(true);
-    },
-  });
+  // ===== Auth helpers =====
+  const { user, requireAuth, signOut } = useRequireAuth?.() || {};
 
   // ===== UI state =====
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -40,21 +34,20 @@ export default function Header() {
     setAuthOpen(true);
   }, []);
 
-  // Guarded List flow: if not authed → open modal (signup tab) with returnTo,
-  // otherwise go straight to create page.
   const onListYourSpace = useCallback(async () => {
     const next = "/list/create";
-    await requireAuth(
-      () => {
+
+    if (typeof requireAuth === "function") {
+      await requireAuth(() => {
         window.location.href = next;
-      },
-      "signup" // if not authed, open modal on signup tab
-    );
-    // Also set returnTo proactively, in case the hook's onRequire runs:
-    setAuthReturnTo(next);
-    setAuthOpen((o) => (user ? o : true));
-    setAuthTab("signup");
-  }, [requireAuth, user]);
+      }, "signup");
+    } else {
+      // fallback: just open modal
+      setAuthTab("signup");
+      setAuthReturnTo(next);
+      setAuthOpen(true);
+    }
+  }, [requireAuth]);
 
   const authButtonLabel = user ? "Account" : "Sign in / Sign up";
 
@@ -181,7 +174,7 @@ export default function Header() {
         )}
       </header>
 
-      {/* Auth modal (returns to /list/create when opened from the CTA) */}
+      {/* Auth modal */}
       <AuthModal
         isOpen={authOpen}
         onClose={() => setAuthOpen(false)}
