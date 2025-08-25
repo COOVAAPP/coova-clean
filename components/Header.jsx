@@ -1,23 +1,30 @@
+// components/Header.jsx
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+// ⬇️ Adjust these paths if your files live elsewhere
 import AuthModal from "./AuthModal.jsx";
-// If you use aliases, change to: import useRequireAuth from "@/lib/useRequireAuth";
 import useRequireAuth from "../lib/useRequireAuth";
+
+/**
+ * Expected `useRequireAuth` contract (what this Header uses):
+ *   const {
+ *     user,                     // object | null
+ *     requireAuth,              // (cb?: () => void) => Promise<void>
+ *     authOpen, setAuthOpen,    // boolean, (v:boolean)=>void
+ *     authTab, setAuthTab,      // "signin" | "signup"
+ *   } = useRequireAuth();
+ *
+ * If your hook exposes slightly different names, update in the two sections marked:  // NOTE: hook field names
+ */
 
 export default function Header() {
   const pathname = usePathname();
 
-  /**
-   * useRequireAuth is assumed to expose:
-   *   - user (or null)
-   *   - requireAuth(cb, defaultTab?)  // opens auth if not logged in; otherwise runs cb
-   *   - authOpen, setAuthOpen
-   *   - authTab?, setAuthTab? (optional)
-   */
+  // ===== Auth state & helpers (from your hook) =====
   const {
     user,
     requireAuth,
@@ -25,287 +32,172 @@ export default function Header() {
     setAuthOpen,
     authTab,
     setAuthTab,
-  } = useRequireAuth();
+  } = useRequireAuth(); // NOTE: hook field names
 
+  // ===== Local UI state =====
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close mobile nav on route change
+  useEffect(() => setMobileOpen(false), [pathname]);
+
+  // Active link helper
+  const isActive = useCallback(
+    (href) => (pathname === href ? "text-white" : "text-white/80"),
+    [pathname]
+  );
+
+  // Open Auth modal and optionally select a tab
   const openAuth = useCallback(
     (tab = "signin") => {
-      // Support hooks that expose setAuthTab; if not present, we just open.
       if (typeof setAuthTab === "function") setAuthTab(tab);
-      setAuthOpen(true);
+      if (typeof setAuthOpen === "function") setAuthOpen(true);
     },
     [setAuthOpen, setAuthTab]
   );
 
-  const goToCreateListing = useCallback(async () => {
-    await requireAuth(() => {
+  // Auth-guarded “List your space”
+  const onListYourSpace = useCallback(async () => {
+    await requireAuth?.(async () => {
+      // User is authenticated → continue
       window.location.href = "/list/create";
-    }, "signup");
+    });
   }, [requireAuth]);
 
-  return (
-    <>
-      <header className="sticky top-0 z-40 w-full border-b border-cyan-600/30 bg-cyan-500/90 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 lg:h-16 lg:px-8">
-          {/* Brand */}
-          <Link
-            href="/"
-            className="text-2xl font-extrabold tracking-wide text-white"
-            aria-label="COOVA Home"
-          >
-            COOVA
-          </Link>
-
-          {/* Right nav */}
-          <nav className="flex items-center gap-3">
-            <Link
-              href="/browse"
-              className="rounded-md px-3 py-2 text-sm font-semibold text-white/90 hover:bg-cyan-600/30 hover:text-white"
-              aria-label="Browse"
-            >
-              Browse
-            </Link>
-
-            <button
-              type="button"
-              onClick={goToCreateListing}
-              className="rounded-full border-2 border-white/70 bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur hover:bg-white/20"
-              aria-label="List your space"
-            >
-              List your space
-            </button>
-
-            {/* Auth control */}
-            {!user && (
-              <button
-                type="button"
-                onClick={() => openAuth("signin")}
-                className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-cyan-600 shadow hover:bg-cyan-50"
-                aria-label="Sign in or Sign up"
-              >
-                Sign in / Sign up
-              </button>
-            )}
-          </nav>
-        </div>
-      </header>
-
-      {/* Mount the Auth modal here (remove if you already mount it globally) */}
-      <AuthModal
-        open={authOpen}
-        onClose={() => setAuthOpen(false)}
-        defaultTab={authTab ?? "signin"}
-      />
-    </>
-  );
-}// components/Header.jsx
-
-import { useCallback, useMemo, useRef, useState, useEffect } from "react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-
-import AuthModal from "./AuthModal.jsx";
-import useRequireAuth from "../lib/useRequireAuth";
-import { supabase } from "../lib/supabaseClient";
-
-export default function Header() {
-  const router = useRouter();
-  const pathname = usePathname();
-
-  const {
-    user,
-    requireAuth,
-    authOpen,
-    setAuthOpen,
-    authTab,
-    setAuthTab,
-  } = useRequireAuth();
-
-  const openAuth = useCallback(
-    (tab = "signin") => {
-      setAuthTab?.(tab);
-      setAuthOpen(true);
-    },
-    [setAuthOpen, setAuthTab]
-  );
-
-  const goToCreateListing = useCallback(async () => {
-    await requireAuth(() => {
-      router.push("/list/create");
-    }, "signup");
-  }, [requireAuth, router]);
-
-  // Avatar state (dropdown)
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef(null);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onClick = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setMenuOpen(false);
-      }
-    };
-    window.addEventListener("mousedown", onClick);
-    return () => window.removeEventListener("mousedown", onClick);
-  }, [menuOpen]);
-
-  // Derive avatar text / image
-  const profileImageUrl = useMemo(() => {
-    // common places people store this in Supabase
-    return (
-      user?.user_metadata?.avatar_url ||
-      user?.user_metadata?.picture || // some OAuth providers
-      null
-    );
+  // Sign in / Sign up button label
+  const authButtonLabel = useMemo(() => {
+    if (user) return "Account";
+    return "Sign in / Sign up";
   }, [user]);
-
-  const displayLetter = useMemo(() => {
-    const name =
-      user?.user_metadata?.full_name ||
-      user?.user_metadata?.name ||
-      user?.email ||
-      "";
-    return name ? name.trim().charAt(0).toUpperCase() : "U";
-  }, [user]);
-
-  const handleSignOut = async () => {
-    try {
-      await supabase.auth.signOut();
-    } finally {
-      setMenuOpen(false);
-      router.refresh();
-    }
-  };
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full border-b border-cyan-600/30 bg-cyan-500/90 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 lg:h-16 lg:px-8">
-          {/* Brand */}
-          <Link
-            href="/"
-            className="text-2xl font-extrabold tracking-wide text-white"
-            aria-label="COOVA Home"
-          >
-            COOVA
-          </Link>
-
-          {/* Right nav */}
-          <nav className="flex items-center gap-3">
-            <Link
-              href="/browse"
-              className="rounded-md px-3 py-2 text-sm font-semibold text-white/90 hover:bg-cyan-600/30 hover:text-white"
-              aria-label="Browse"
-            >
-              Browse
-            </Link>
-
-            <button
-              type="button"
-              onClick={goToCreateListing}
-              className="rounded-full border-2 border-white/70 bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur hover:bg-white/20"
-              aria-label="List your space"
-            >
-              List your space
-            </button>
-
-            {/* Auth controls */}
-            {!user ? (
+      {/* Top bar */}
+      <header className="sticky top-0 z-40 bg-cyan-500/90 backdrop-blur supports-[backdrop-filter]:bg-cyan-500/70 border-b border-white/10">
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex h-14 items-center justify-between">
+            {/* Left: Brand */}
+            <div className="flex items-center gap-3">
               <button
-                type="button"
-                onClick={() => openAuth("signin")}
-                className="rounded-full bg-white px-4 py-2 text-sm font-bold text-cyan-600 shadow hover:bg-cyan-50"
-                aria-label="Sign in or Sign up"
+                className="lg:hidden inline-flex items-center justify-center p-2 rounded-md text-white/90 hover:text-white hover:bg-white/10 outline-none"
+                aria-label="Open navigation"
+                onClick={() => setMobileOpen((v) => !v)}
               >
-                Sign in / Sign up
-              </button>
-            ) : (
-              <div className="relative" ref={menuRef}>
-                {/* Avatar Button */}
-                <button
-                  type="button"
-                  aria-haspopup="menu"
-                  aria-expanded={menuOpen}
-                  onClick={() => setMenuOpen((v) => !v)}
-                  className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-cyan-500 ring-2 ring-white/70 shadow"
-                  title={user.email ?? "Account"}
+                <svg
+                  className="h-6 w-6"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
                 >
-                  {profileImageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={profileImageUrl}
-                      alt="Profile"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-sm font-extrabold text-white">
-                      {displayLetter}
-                    </span>
-                  )}
-                </button>
+                  <path d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
 
-                {/* Dropdown */}
-                {menuOpen && (
-                  <div
-                    role="menu"
-                    className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg"
+              <Link
+                href="/"
+                className="font-extrabold tracking-wide text-2xl text-white"
+              >
+                COOVA
+              </Link>
+            </div>
+
+            {/* Center: primary nav (desktop) */}
+            <nav className="hidden lg:flex items-center gap-8">
+              <Link
+                href="/browse"
+                className={`text-sm font-medium transition hover:text-white ${isActive(
+                  "/browse"
+                )}`}
+              >
+                Browse
+              </Link>
+
+              <button
+                onClick={onListYourSpace}
+                className="text-sm font-semibold text-white/90 hover:text-white transition"
+                aria-label="List your space"
+              >
+                List your space
+              </button>
+            </nav>
+
+            {/* Right: auth */}
+            <div className="flex items-center gap-3">
+              {!user ? (
+                <div className="hidden sm:flex items-center gap-2">
+                  <button
+                    onClick={() => openAuth("signin")}
+                    className="rounded-full border-2 border-white px-4 py-1.5 text-sm font-semibold text-white hover:bg-white/10 transition"
                   >
-                    <div className="px-4 py-3 border-b">
-                      <p className="text-sm font-bold text-gray-900">
-                        {user?.user_metadata?.full_name ||
-                          user?.user_metadata?.name ||
-                          user?.email}
-                      </p>
-                      {user?.email && (
-                        <p className="mt-0.5 text-xs text-gray-500 truncate">
-                          {user.email}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="py-1">
-                      <Link
-                        href="/profile"
-                        role="menuitem"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                        onClick={() => setMenuOpen(false)}
-                      >
-                        Profile
-                      </Link>
-                      <Link
-                        href="/dashboard"
-                        role="menuitem"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                        onClick={() => setMenuOpen(false)}
-                      >
-                        Dashboard
-                      </Link>
-                    </div>
-
-                    <div className="border-t py-1">
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={handleSignOut}
-                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm font-semibold text-red-600 hover:bg-red-50"
-                      >
-                        Sign out
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </nav>
+                    {authButtonLabel}
+                  </button>
+                </div>
+              ) : (
+                // When authenticated you might render your existing UserMenu here
+                <Link
+                  href="/dashboard"
+                  className="rounded-full border-2 border-white px-4 py-1.5 text-sm font-semibold text-white hover:bg-white/10 transition"
+                >
+                  Dashboard
+                </Link>
+              )}
+            </div>
+          </div>
         </div>
+
+        {/* Mobile drawer */}
+        {mobileOpen && (
+          <div className="lg:hidden border-t border-white/10 bg-cyan-600/90 backdrop-blur">
+            <div className="mx-auto w-full max-w-7xl px-4 py-3 flex flex-col gap-2">
+              <Link
+                href="/browse"
+                className={`block rounded-md px-3 py-2 text-base font-medium hover:bg-white/10 ${isActive(
+                  "/browse"
+                )}`}
+              >
+                Browse
+              </Link>
+
+              <button
+                onClick={onListYourSpace}
+                className="block text-left rounded-md px-3 py-2 text-base font-semibold text-white hover:bg-white/10"
+              >
+                List your space
+              </button>
+
+              {!user ? (
+                <div className="mt-1 grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => openAuth("signin")}
+                    className="rounded-md bg-white/10 px-3 py-2 text-sm font-semibold text-white hover:bg-white/20"
+                  >
+                    Sign in
+                  </button>
+                  <button
+                    onClick={() => openAuth("signup")}
+                    className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-cyan-700 hover:bg-white/90"
+                  >
+                    Sign up
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  href="/dashboard"
+                  className="mt-1 rounded-md bg-white/10 px-3 py-2 text-sm font-semibold text-white hover:bg-white/20"
+                >
+                  Dashboard
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
       </header>
 
-      {/* Single global AuthModal mount */}
+      {/* Auth modal (renders anywhere) */}
       <AuthModal
-        open={authOpen}
-        onClose={() => setAuthOpen(false)}
-        defaultTab={authTab ?? "signin"}
+        open={!!authOpen}                // NOTE: prop names – adjust if your modal uses `isOpen`
+        onClose={() => setAuthOpen?.(false)}
+        defaultTab={authTab || "signin"} // NOTE: prop name – adjust if your modal uses `initialTab`
       />
     </>
   );
