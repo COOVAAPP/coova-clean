@@ -106,7 +106,7 @@ export default function CreateListingClient() {
     }
 
     setSubmitting(true);
-    const price_cents = Math.round(Number(price) * 100);
+    const price_cents = Number(price);
 
     const insertPayload = {
       owner_id: userId,
