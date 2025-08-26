@@ -25,18 +25,18 @@ async function getListingWithExtras(id) {
   const supabase = await getClient();
 
   // NOTE: Keep ONLY real column names here. No "--comments" or type hints.
-  const { data: listing, error } = await supabase
-    .from("listings")
-    .select(
-      `
+    const { data: listing, error } = await supabase
+  .from("listings")
+  .select(
+    `
       id,
       title,
       description,
-      image_url,          -- cover image (string)
-      image_urls,         -- gallery (jsonb array of strings)
-      price_per_hour,     -- numeric (USD)
+      image_url,
+      image_urls,
+      price_per_hour,
       owner_id,
-      amenities,          -- jsonb or text[]
+      amenities,
       address_line1,
       city,
       state,
@@ -51,9 +51,9 @@ async function getListingWithExtras(id) {
         bio
       )
     `
-    )
-    .eq("id", id)
-    .single();
+  )
+  .eq("id", id)
+  .single();
 
   if (error) {
     // PGRST116 = row not found
@@ -115,7 +115,7 @@ export default async function ListingPage({ params }) {
   const ownerId = listing.owner_id;
 
   // cover + gallery from your schema
-  const coverUrl = listing.image_url || null;
+  const coverUrl = listing.image_url || (Array.isArray(listing.image_urls) ? listing.image_rls[0] : null);
   const gallery = Array.isArray(listing.image_urls)
     ? listing.image_urls.filter(Boolean)
     : [];
