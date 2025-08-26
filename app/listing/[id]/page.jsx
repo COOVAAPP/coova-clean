@@ -3,13 +3,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import BookingForm from "@/components/BookingForm";
-import { createClient } from "@supabase/supabase-js";
 import AmenityPill from "@/components/AmenityPill";
+import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
 /* ------------------------------------------
-   Data fetch (server)
+   Supabase (server)
 ------------------------------------------- */
 async function getClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -18,17 +18,15 @@ async function getClient() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-const SELECT = `
+const LISTING_SELECT = `
   id,
   title,
   description,
-  cover_url,
-  images,
-  image_url,
-  image_urls,
-  price_per_hour,
+  image_url,          -- single cover image
+  image_urls,         -- array of image URLs (jsonb)
+  price_per_hour,     -- numeric (USD)
   owner_id,
-  amenities,
+  amenities,          -- text[] or json[]
   address_line1,
   city,
   state,
@@ -47,23 +45,25 @@ const SELECT = `
 async function getListingWithExtras(id) {
   const supabase = await getClient();
 
+  // Main listing
   const { data: listing, error } = await supabase
     .from("listings")
-    .select(SELECT)
+    .select(LISTING_SELECT)
     .eq("id", id)
     .single();
 
   if (error) {
+    // PGRST116 = no rows found
     if (error.code === "PGRST116") return null;
     throw error;
   }
 
-  // Related listings by city (fallback by country if city missing)
+  // Related listings by city (fallback by country)
   let related = [];
   if (listing?.city) {
     const { data } = await supabase
       .from("listings")
-      .select("id,title,cover_url,price_per_hour,city")
+      .select("id,title,image_url,price_per_hour,city")
       .eq("city", listing.city)
       .neq("id", id)
       .limit(6);
@@ -71,26 +71,35 @@ async function getListingWithExtras(id) {
   } else if (listing?.country) {
     const { data } = await supabase
       .from("listings")
-      .select("id,title,cover_url,price_per_hour,city")
+      .select("id,title,image_url,price_per_hour,city")
       .eq("country", listing.country)
       .neq("id", id)
       .limit(6);
     related = data ?? [];
   }
 
-  return { listing, related, reviewsAgg: null };
+  // (Optional) reviews aggregate could go here
+
+  return { listing, related };
 }
 
 /* ------------------------------------------
    Helpers
 ------------------------------------------- */
-function money(cents) {
-  return `$${((cents ?? 0) / 100).toLocaleString()}`;
+function moneyUSD(value) {
+  const n = Number(value ?? 0);
+  return n.toLocaleString(undefined, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
 }
+
 function fullAddress(l) {
   const parts = [l?.address_line1, l?.city, l?.state, l?.country].filter(Boolean);
   return parts.join(", ");
 }
+
 function mapSrc({ lat, lng, q }) {
   if (lat && lng) return `https://maps.google.com/maps?q=${lat},${lng}&z=13&output=embed`;
   if (q) return `https://maps.google.com/maps?q=${encodeURIComponent(q)}&z=13&output=embed`;
@@ -108,37 +117,30 @@ export default async function ListingPage({ params }) {
   const { listing, related } = data;
 
   const title = listing.title || "Untitled listing";
-  const priceCents = listing.price_per_hour ?? 0;
+  const priceUSD = listing.price_per_hour ?? 0;
   const ownerId = listing.owner_id;
-  const coverUrl = listing.cover_url || listing.image_url || null;
 
-  // Build gallery from whatever columns exist:
-  const gallery =
-    (Array.isArray(listing.image_urls) && listing.image_urls.length
-      ? listing.image_urls
-      : Array.isArray(listing.images)
-      ? listing.images
-      : []
-    ).filter(Boolean);
+  // cover & gallery derived from image_url + image_urls
+  const coverUrl = listing.image_url || (Array.isArray(listing.image_urls) ? listing.image_urls[0] : null);
+  const gallery = Array.isArray(listing.image_urls) ? listing.image_urls.filter(Boolean) : [];
 
-  const amenities = Array.isArray(listing.amenities)
-    ? listing.amenities
-    : listing.amenities?.items ?? [];
-
+  const amenities =
+    Array.isArray(listing.amenities) ? listing.amenities : (listing.amenities?.items ?? []);
   const host = listing.profiles || null;
 
+  // Map
   const address = fullAddress(listing);
   const mapUrl = mapSrc({ lat: listing.lat, lng: listing.lng, q: address });
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-10">
+    <main className="mx-auto max-w-6xl px-4 py-10">
       {/* Title + price */}
       <header className="flex items-end justify-between gap-4">
         <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">{title}</h1>
         <div className="text-right">
           <p className="text-xs text-gray-500">From</p>
           <p className="text-2xl font-extrabold">
-            {money(priceCents)}{" "}
+            {moneyUSD(priceUSD)}{" "}
             <span className="ml-1 text-sm font-normal text-gray-500">/ hour</span>
           </p>
         </div>
@@ -165,7 +167,7 @@ export default async function ListingPage({ params }) {
       {/* Main grid */}
       <div className="mt-8 grid gap-8 md:grid-cols-3">
         {/* Left column */}
-        <div className="md:col-span-2 space-y-8">
+        <div className="space-y-8 md:col-span-2">
           {/* Gallery */}
           {gallery.length > 0 && (
             <section>
@@ -173,6 +175,7 @@ export default async function ListingPage({ params }) {
               <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {gallery.map((src, i) => (
                   <div key={i} className="relative aspect-[4/3] overflow-hidden rounded-md border">
+                    {/* allow remote domains in next.config.js images.domains */}
                     <Image src={src} alt={`Photo ${i + 1}`} fill className="object-cover" />
                   </div>
                 ))}
@@ -237,14 +240,14 @@ export default async function ListingPage({ params }) {
         </div>
 
         {/* Right column */}
-        <aside className="md:col-span-1 space-y-8">
+        <aside className="space-y-8 md:col-span-1">
           {/* Booking card */}
           <div className="rounded-lg border border-gray-200 bg-white p-5">
             <h3 className="text-base font-semibold">Book this space</h3>
             <div className="mt-4">
               <BookingForm
                 listingId={listing.id}
-                priceCents={priceCents}
+                priceCents={Math.round(Number(priceUSD || 0) * 100)} // BookingForm expects cents
                 ownerId={ownerId}
                 onSuccessRedirect="/dashboard/bookings"
               />
@@ -266,7 +269,7 @@ export default async function ListingPage({ params }) {
                       className="object-cover"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-white font-bold">
+                    <div className="flex h-full w-full items-center justify-center font-bold text-white">
                       {((host.first_name?.[0] || host.last_name?.[0] || "U") + "")
                         .toUpperCase()}
                     </div>
@@ -276,6 +279,7 @@ export default async function ListingPage({ params }) {
                   <p className="text-sm font-semibold">
                     {[host.first_name, host.last_name].filter(Boolean).join(" ") || "Host"}
                   </p>
+                  <p className="text-xs text-gray-500"></p>
                 </div>
               </div>
               {host.bio && <p className="mt-3 text-sm text-gray-700">{host.bio}</p>}
@@ -302,9 +306,9 @@ export default async function ListingPage({ params }) {
                 className="group overflow-hidden rounded-lg border border-gray-200 bg-white hover:shadow"
               >
                 <div className="relative aspect-[4/3] w-full bg-gray-50">
-                  {r.cover_url ? (
+                  {r.image_url ? (
                     <Image
-                      src={r.cover_url}
+                      src={r.image_url}
                       alt={r.title || "Listing"}
                       fill
                       className="object-cover transition-transform group-hover:scale-[1.02]"
@@ -318,7 +322,7 @@ export default async function ListingPage({ params }) {
                 <div className="p-3">
                   <p className="line-clamp-1 text-sm font-semibold">{r.title || "Listing"}</p>
                   <p className="mt-1 text-xs text-gray-500">{r.city || ""}</p>
-                  <p className="mt-2 text-sm font-bold">{money(r.price_per_hour)}</p>
+                  <p className="mt-2 text-sm font-bold">{moneyUSD(r.price_per_hour)}</p>
                 </div>
               </Link>
             ))}
