@@ -9,7 +9,7 @@ import { createClient } from "@supabase/supabase-js";
 export const dynamic = "force-dynamic";
 
 /* ------------------------------------------
-   Supabase (server)
+   Supabase client (server-side)
 ------------------------------------------- */
 async function getClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -18,67 +18,66 @@ async function getClient() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-const LISTING_SELECT = `
-  id,
-  title,
-  description,
-  image_url,          -- single cover image
-  image_urls,         -- array of image URLs (jsonb)
-  price_per_hour,     -- numeric (USD)
-  owner_id,
-  amenities,          -- text[] or json[]
-  address_line1,
-  city,
-  state,
-  country,
-  lat,
-  lng,
-  profiles:owner_id (
-    id,
-    first_name,
-    last_name,
-    avatar_url,
-    bio
-  )
-`;
-
+/* ------------------------------------------
+   Data fetch (server)
+------------------------------------------- */
 async function getListingWithExtras(id) {
   const supabase = await getClient();
 
-  // Main listing
+  // NOTE: Keep ONLY real column names here. No "--comments" or type hints.
   const { data: listing, error } = await supabase
     .from("listings")
-    .select(LISTING_SELECT)
+    .select(
+      `
+      id,
+      title,
+      description,
+      image_url,          -- cover image (string)
+      image_urls,         -- gallery (jsonb array of strings)
+      price_per_hour,     -- numeric (USD)
+      owner_id,
+      amenities,          -- jsonb or text[]
+      address_line1,
+      city,
+      state,
+      country,
+      lat,
+      lng,
+      profiles:owner_id (
+        id,
+        first_name,
+        last_name,
+        avatar_url,
+        bio
+      )
+    `
+    )
     .eq("id", id)
     .single();
 
   if (error) {
-    // PGRST116 = no rows found
+    // PGRST116 = row not found
     if (error.code === "PGRST116") return null;
     throw error;
   }
 
-  // Related listings by city (fallback by country)
+  // Related listings (same city if present, otherwise same country)
   let related = [];
-  if (listing?.city) {
-    const { data } = await supabase
-      .from("listings")
-      .select("id,title,image_url,price_per_hour,city")
-      .eq("city", listing.city)
-      .neq("id", id)
-      .limit(6);
-    related = data ?? [];
-  } else if (listing?.country) {
-    const { data } = await supabase
-      .from("listings")
-      .select("id,title,image_url,price_per_hour,city")
-      .eq("country", listing.country)
-      .neq("id", id)
-      .limit(6);
-    related = data ?? [];
-  }
+  const scope = listing?.city
+    ? { column: "city", value: listing.city }
+    : listing?.country
+    ? { column: "country", value: listing.country }
+    : null;
 
-  // (Optional) reviews aggregate could go here
+  if (scope) {
+    const { data: rel } = await supabase
+      .from("listings")
+      .select("id,title,image_url,price_per_hour,city")
+      .eq(scope.column, scope.value)
+      .neq("id", id)
+      .limit(6);
+    related = rel ?? [];
+  }
 
   return { listing, related };
 }
@@ -86,18 +85,13 @@ async function getListingWithExtras(id) {
 /* ------------------------------------------
    Helpers
 ------------------------------------------- */
-function moneyUSD(value) {
-  const n = Number(value ?? 0);
-  return n.toLocaleString(undefined, {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  });
+function moneyUSD(n) {
+  const num = Number(n || 0);
+  return num.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 }
 
 function fullAddress(l) {
-  const parts = [l?.address_line1, l?.city, l?.state, l?.country].filter(Boolean);
-  return parts.join(", ");
+  return [l?.address_line1, l?.city, l?.state, l?.country].filter(Boolean).join(", ");
 }
 
 function mapSrc({ lat, lng, q }) {
@@ -111,36 +105,39 @@ function mapSrc({ lat, lng, q }) {
 ------------------------------------------- */
 export default async function ListingPage({ params }) {
   const { id } = params;
-  const data = await getListingWithExtras(id);
-  if (!data?.listing) notFound();
+  const out = await getListingWithExtras(id);
+  if (!out?.listing) notFound();
 
-  const { listing, related } = data;
+  const { listing, related } = out;
 
   const title = listing.title || "Untitled listing";
-  const priceUSD = listing.price_per_hour ?? 0;
+  const price = listing.price_per_hour ?? 0;
   const ownerId = listing.owner_id;
 
-  // cover & gallery derived from image_url + image_urls
-  const coverUrl = listing.image_url || (Array.isArray(listing.image_urls) ? listing.image_urls[0] : null);
-  const gallery = Array.isArray(listing.image_urls) ? listing.image_urls.filter(Boolean) : [];
+  // cover + gallery from your schema
+  const coverUrl = listing.image_url || null;
+  const gallery = Array.isArray(listing.image_urls)
+    ? listing.image_urls.filter(Boolean)
+    : [];
 
-  const amenities =
-    Array.isArray(listing.amenities) ? listing.amenities : (listing.amenities?.items ?? []);
+  const amenities = Array.isArray(listing.amenities)
+    ? listing.amenities
+    : listing.amenities?.items ?? [];
+
   const host = listing.profiles || null;
 
-  // Map
   const address = fullAddress(listing);
   const mapUrl = mapSrc({ lat: listing.lat, lng: listing.lng, q: address });
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-10">
+    <main className="max-w-6xl mx-auto px-4 py-10">
       {/* Title + price */}
       <header className="flex items-end justify-between gap-4">
         <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">{title}</h1>
         <div className="text-right">
           <p className="text-xs text-gray-500">From</p>
           <p className="text-2xl font-extrabold">
-            {moneyUSD(priceUSD)}{" "}
+            {moneyUSD(price)}{" "}
             <span className="ml-1 text-sm font-normal text-gray-500">/ hour</span>
           </p>
         </div>
@@ -167,7 +164,7 @@ export default async function ListingPage({ params }) {
       {/* Main grid */}
       <div className="mt-8 grid gap-8 md:grid-cols-3">
         {/* Left column */}
-        <div className="space-y-8 md:col-span-2">
+        <div className="md:col-span-2 space-y-8">
           {/* Gallery */}
           {gallery.length > 0 && (
             <section>
@@ -175,7 +172,6 @@ export default async function ListingPage({ params }) {
               <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {gallery.map((src, i) => (
                   <div key={i} className="relative aspect-[4/3] overflow-hidden rounded-md border">
-                    {/* allow remote domains in next.config.js images.domains */}
                     <Image src={src} alt={`Photo ${i + 1}`} fill className="object-cover" />
                   </div>
                 ))}
@@ -240,14 +236,14 @@ export default async function ListingPage({ params }) {
         </div>
 
         {/* Right column */}
-        <aside className="space-y-8 md:col-span-1">
+        <aside className="md:col-span-1 space-y-8">
           {/* Booking card */}
           <div className="rounded-lg border border-gray-200 bg-white p-5">
             <h3 className="text-base font-semibold">Book this space</h3>
             <div className="mt-4">
               <BookingForm
                 listingId={listing.id}
-                priceCents={Math.round(Number(priceUSD || 0) * 100)} // BookingForm expects cents
+                priceCents={Math.round(Number(price) * 100)} // BookingForm expects cents
                 ownerId={ownerId}
                 onSuccessRedirect="/dashboard/bookings"
               />
@@ -269,9 +265,8 @@ export default async function ListingPage({ params }) {
                       className="object-cover"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center font-bold text-white">
-                      {((host.first_name?.[0] || host.last_name?.[0] || "U") + "")
-                        .toUpperCase()}
+                    <div className="flex h-full w-full items-center justify-center text-white font-bold">
+                      {((host.first_name?.[0] || host.last_name?.[0] || "U") + "").toUpperCase()}
                     </div>
                   )}
                 </div>
@@ -314,9 +309,7 @@ export default async function ListingPage({ params }) {
                       className="object-cover transition-transform group-hover:scale-[1.02]"
                     />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-gray-400">
-                      No photo
-                    </div>
+                    <div className="flex h-full items-center justify-center text-gray-400">No photo</div>
                   )}
                 </div>
                 <div className="p-3">
