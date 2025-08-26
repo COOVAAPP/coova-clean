@@ -1,3 +1,4 @@
+// app/components/CreateListingClient.jsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -12,7 +13,12 @@ import UploadGallery from "@/components/UploadGallery";
  *  3) Publish → sets image_url cover if missing and routes to /listing/:id
  */
 
-// UI helpers / constants
+// If your CHECK constraint uses different words (e.g. 'active'), change here.
+const STATUS = {
+  DRAFT: "draft",
+  PUBLISHED: "published",
+};
+
 const CATEGORIES = [
   "Studio",
   "Event Space",
@@ -114,20 +120,21 @@ export default function CreateListingClient() {
     try {
       setSubmitting(true);
 
-      // Build payload. Your table shows *both* user_id and owner_id.
-      // We set both to be safe (if one is NOT NULL in your schema).
+      // Your table shows both user_id and owner_id; we set both.
       const payload = {
         user_id: userId,
-        owner_id: userId, // harmless if column exists; ignored if not
+        owner_id: userId,
         title: title.trim(),
         description: description.trim(),
         category,
         capacity: Number(capacity) || 1,
-        price_per_hour: priceNumber, // numeric
-        amenities, // jsonb array of strings
-        image_urls: [], // start empty
-        is_public: false, // stays draft until "Publish"
-        status: "draft",
+        // ✅ use the correct state var
+        price_per_hour: Number(pricePerHour),
+        amenities,           // jsonb array of strings
+        image_urls: [],      // start empty
+        // ✅ drafts should not be public and must use an allowed status
+        is_public: false,
+        status: STATUS.DRAFT,
       };
 
       const { data: row, error: dbErr } = await supabase
@@ -148,10 +155,8 @@ export default function CreateListingClient() {
   }
 
   // Called by UploadGallery when image_urls changes (optional)
-  const onGalleryChange = (urls) => {
-    // If you ever want to reflect the first image as cover on the client:
-    // (we still do the final set on Publish below)
-    // console.log("image_urls updated:", urls);
+  const onGalleryChange = (_urls) => {
+    // no-op for now
   };
 
   // Publish: set cover if missing and route to listing page
@@ -170,7 +175,12 @@ export default function CreateListingClient() {
 
       if (selErr) throw selErr;
 
-      let update = { is_public: true, status: "active" };
+      const update = {
+        is_public: true,
+        // ✅ must be one of the allowed values in your CHECK constraint
+        status: STATUS.PUBLISHED, // change to 'active' here if your DB uses that
+      };
+
       if (!data?.image_url && Array.isArray(data?.image_urls) && data.image_urls.length > 0) {
         update.image_url = data.image_urls[0]; // set cover to first image
       }
