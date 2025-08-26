@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import UploadGallery from "@/components/UploadGallery";
 
-// ---------------------------
-// Config
-// ---------------------------
-const MAX_FILES = 12;
-const MAX_SIZE = 50 * 1024 * 1024; // 50MB
+/**
+ * Two-step create flow:
+ *  1) Save a minimal draft row in `listings`
+ *  2) Enable photo uploads (stored in image_urls)
+ *  3) Publish → sets image_url cover if missing and routes to /listing/:id
+ */
 
+// UI helpers / constants
 const CATEGORIES = [
   "Studio",
   "Event Space",
@@ -37,21 +39,21 @@ const AMENITY_SUGGESTIONS = [
 export default function CreateListingClient() {
   const router = useRouter();
 
-  // Auth / user
+  // Auth
   const [userId, setUserId] = useState(null);
   const [loadingUser, setLoadingUser] = useState(true);
 
   // Form fields
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("Studio");
+  const [category, setCategory] = useState(CATEGORIES[0]);
   const [capacity, setCapacity] = useState(1);
-  const [price, setPrice] = useState(""); // dollars (string in UI)
-  const [amenityInput, setAmenityInput] = useState("");
+  const [pricePerHour, setPricePerHour] = useState(""); // numeric in DB
   const [amenities, setAmenities] = useState([]);
+  const [amenityInput, setAmenityInput] = useState("");
 
   // Step/state
-  const [listingId, setListingId] = useState(null); // truthy after first save
+  const [listingId, setListingId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -59,6 +61,7 @@ export default function CreateListingClient() {
   // Load session
   useEffect(() => {
     let mounted = true;
+
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (!mounted) return;
@@ -67,10 +70,14 @@ export default function CreateListingClient() {
       setLoadingUser(false);
     })();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-      setUserId(s?.user?.id || null);
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+      setUserId(session?.user?.id || null);
     });
-    return () => sub.subscription.unsubscribe();
+
+    return () => {
+      sub?.subscription?.unsubscribe?.();
+      mounted = false;
+    };
   }, []);
 
   // Amenity helpers
@@ -84,86 +91,100 @@ export default function CreateListingClient() {
     setAmenities((a) => a.filter((x) => x !== name));
   }
 
-  // ---------------------------
-  // Create a draft row if needed (used by Upload Photos button)
-  // ---------------------------
-  async function createDraftIfNeeded() {
-    if (listingId) return listingId;
+  // First save: create minimal listing row
+  async function onCreateListing(e) {
+    e?.preventDefault?.();
     setError("");
     setSuccess("");
 
     if (!userId) {
       setError("Please sign in to create a listing.");
-      throw new Error("Not signed in");
+      return;
     }
     if (!title.trim()) {
       setError("Title is required.");
-      throw new Error("Missing title");
+      return;
     }
-    if (!price || isNaN(Number(price)) || Number(price) < 0) {
-      setError("Price must be a valid number.");
-      throw new Error("Bad price");
-    }
-
-    setSubmitting(true);
-    const price_per_hour = Number(price);
-
-    const insertPayload = {
-      owner_id: userId,
-      title: title.trim(),
-      description: description.trim(),
-      category,
-      capacity: Number(capacity) || 1,
-      price_per_hour,
-      amenities,
-    };
-
-    const { data: row, error: dbErr } = await supabase
-      .from("listings")
-      .insert(insertPayload)
-      .select("*")
-      .single();
-
-    setSubmitting(false);
-
-    if (dbErr) {
-      setError(dbErr.message);
-      throw dbErr;
+    const priceNumber = Number(pricePerHour);
+    if (!pricePerHour || Number.isNaN(priceNumber) || priceNumber < 0) {
+      setError("Price (per hour) must be a valid number.");
+      return;
     }
 
-    setListingId(row.id);
-    setSuccess("Listing created! Now add photos and Publish.");
-    return row.id;
-  }
-
-  // Submit (explicit Create listing button)
-  async function onCreateListing(e) {
-    e?.preventDefault?.();
-    await createDraftIfNeeded();
-  }
-
-  // Publish (optional: set cover to first image)
-  async function onPublish() {
-    if (!listingId) return;
     try {
       setSubmitting(true);
-      const { data: assets } = await supabase
-        .from("listing_assets")
-        .select("*")
-        .eq("listing_id", listingId)
-        .eq("type", "image")
-        .order("position", { ascending: true })
-        .limit(1);
 
-      const cover = assets?.[0]?.url || null;
-      await supabase
+      // Build payload. Your table shows *both* user_id and owner_id.
+      // We set both to be safe (if one is NOT NULL in your schema).
+      const payload = {
+        user_id: userId,
+        owner_id: userId, // harmless if column exists; ignored if not
+        title: title.trim(),
+        description: description.trim(),
+        category,
+        capacity: Number(capacity) || 1,
+        price_per_hour: priceNumber, // numeric
+        amenities, // jsonb array of strings
+        image_urls: [], // start empty
+        is_public: false, // stays draft until "Publish"
+        status: "draft",
+      };
+
+      const { data: row, error: dbErr } = await supabase
         .from("listings")
-        .update({ cover_image: cover })
+        .insert(payload)
+        .select("id")
+        .single();
+
+      if (dbErr) throw dbErr;
+
+      setListingId(row.id);
+      setSuccess("Listing created! Now add photos and Publish.");
+    } catch (err) {
+      setError(err.message || "Could not create listing.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  // Called by UploadGallery when image_urls changes (optional)
+  const onGalleryChange = (urls) => {
+    // If you ever want to reflect the first image as cover on the client:
+    // (we still do the final set on Publish below)
+    // console.log("image_urls updated:", urls);
+  };
+
+  // Publish: set cover if missing and route to listing page
+  async function onPublish() {
+    if (!listingId) return;
+    setError("");
+    try {
+      setSubmitting(true);
+
+      // grab current image_urls
+      const { data, error: selErr } = await supabase
+        .from("listings")
+        .select("image_urls, image_url")
+        .eq("id", listingId)
+        .single();
+
+      if (selErr) throw selErr;
+
+      let update = { is_public: true, status: "active" };
+      if (!data?.image_url && Array.isArray(data?.image_urls) && data.image_urls.length > 0) {
+        update.image_url = data.image_urls[0]; // set cover to first image
+      }
+
+      const { error: updErr } = await supabase
+        .from("listings")
+        .update(update)
         .eq("id", listingId);
 
+      if (updErr) throw updErr;
+
       router.push(`/listing/${listingId}`);
-    } catch (e) {
-      setError(e.message || "Failed to publish.");
+    } catch (err) {
+      setError(err.message || "Failed to publish.");
     } finally {
       setSubmitting(false);
     }
@@ -174,11 +195,9 @@ export default function CreateListingClient() {
     [submitting, loadingUser]
   );
 
+  // UI
   return (
-    <form
-      onSubmit={onCreateListing}
-      className="space-y-8 rounded-md border border-gray-200 bg-white p-6 shadow"
-    >
+    <form onSubmit={onCreateListing} className="space-y-8 rounded-md border border-gray-200 bg-white p-6 shadow">
       {/* Title */}
       <div>
         <label className="block text-sm font-bold">Title</label>
@@ -245,8 +264,8 @@ export default function CreateListingClient() {
               type="number"
               min="0"
               step="1"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
+              value={pricePerHour}
+              onChange={(e) => setPricePerHour(e.target.value)}
               className="block w-full rounded-md border-gray-300 pl-7 shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
               placeholder="100"
               disabled={!!listingId}
@@ -258,6 +277,7 @@ export default function CreateListingClient() {
       {/* Amenities */}
       <div>
         <label className="block text-sm font-bold">Amenities</label>
+
         <div className="mt-2 flex flex-wrap gap-2">
           {amenities.map((a) => (
             <span
@@ -310,8 +330,7 @@ export default function CreateListingClient() {
                   key={s}
                   type="button"
                   onClick={() => {
-                    if (!amenities.includes(s))
-                      setAmenities((a) => [...a, s]);
+                    if (!amenities.includes(s)) setAmenities((a) => [...a, s]);
                   }}
                   className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs text-gray-600 hover:border-cyan-300 hover:bg-cyan-50"
                 >
@@ -323,36 +342,9 @@ export default function CreateListingClient() {
         )}
       </div>
 
-      {/* Photos + Actions */}
+      {/* Step 1 or Step 2 */}
       {!listingId ? (
         <>
-          {/* Upload photos CTA (creates draft first) */}
-          <div>
-            <label className="block text-sm font-bold mb-2">Photos</label>
-            <div className="rounded-md border-2 border-dashed border-gray-300 p-6 text-center">
-              <p className="text-sm text-gray-600 mb-3">
-                You’ll need a draft listing to upload photos.
-              </p>
-              <button
-                type="button"
-                disabled={isDisabled}
-                onClick={async () => {
-                  try {
-                    await createDraftIfNeeded();
-                    // After this, the gallery will render (listingId set)
-                  } catch {}
-                }}
-                className="rounded-md bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-700 disabled:opacity-50"
-              >
-                {submitting ? "Creating…" : "Upload photos"}
-              </button>
-              <p className="mt-2 text-xs text-gray-500">
-                Up to {MAX_FILES} images, {Math.round(MAX_SIZE / (1024 * 1024))}MB each.
-              </p>
-            </div>
-          </div>
-
-          {/* Alerts */}
           {error && (
             <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
               {error}
@@ -364,7 +356,6 @@ export default function CreateListingClient() {
             </div>
           )}
 
-          {/* Step 1 actions */}
           <div className="flex items-center justify-end gap-3">
             <button
               type="button"
@@ -385,23 +376,20 @@ export default function CreateListingClient() {
         </>
       ) : (
         <>
-          {/* Once we have an id, render the real gallery uploader */}
           <div>
-            <label className="block text-sm font-bold mb-2">Photos</label>
-            <UploadGallery listingId={listingId} />
+            <label className="mb-2 block text-sm font-bold">Photos</label>
+            <UploadGallery listingId={listingId} onChange={onGalleryChange} />
             <p className="mt-2 text-xs text-gray-500">
-              Add up to {MAX_FILES} images (50MB each). You can remove or reorder later.
+              You can add up to 12 photos (50MB each). Remove any you don’t want before publishing.
             </p>
           </div>
 
-          {/* Alerts */}
           {error && (
             <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
               {error}
             </div>
           )}
 
-          {/* Step 2 actions */}
           <div className="flex items-center justify-between">
             <button
               type="button"
