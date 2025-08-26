@@ -1,58 +1,50 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { uploadToBucket, insertAsset, deleteAsset } from "@/lib/supabaseStorage";
 
-const BUCKET = "listing-images"; // adjust if your helper expects another bucket
+// Where images live (public bucket recommended)
+const BUCKET = "listings";
 
 export default function UploadGallery({ listingId }) {
   const [assets, setAssets] = useState([]);
   const [uploading, setUploading] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef(null);
 
-  // load
+  // Load existing images
   useEffect(() => {
     let active = true;
-    if (!listingId) return;
-    supabase
-      .from("listing_assets")
-      .select("*")
-      .eq("listing_id", listingId)
-      .eq("type", "image")
-      .order("position", { ascending: true })
-      .order("created_at", { ascending: true })
-      .then(({ data }) => {
-        if (active) setAssets(data || []);
-      });
+    (async () => {
+      const { data, error } = await supabase
+        .from("listing_assets")
+        .select("*")
+        .eq("listing_id", listingId)
+        .eq("type", "image")
+        .order("position", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (!active) return;
+      if (error) {
+        console.error(error);
+        setAssets([]);
+      } else {
+        setAssets(data || []);
+      }
+    })();
     return () => {
       active = false;
     };
   }, [listingId]);
 
-  // choose
-  const onChoose = useCallback(async (e) => {
+  // Open file picker
+  function openPicker() {
+    inputRef.current?.click();
+  }
+
+  // Upload handler
+  async function onChoose(e) {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
-    await doUpload(files);
-    if (inputRef.current) inputRef.current.value = "";
-  }, [assets]);
-
-  // drag & drop
-  const onDrop = useCallback(async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(false);
-    const files = Array.from(e.dataTransfer?.files || []).filter((f) =>
-      f.type.startsWith("image/")
-    );
-    if (!files.length) return;
-    await doUpload(files);
-  }, [assets]);
-
-  const doUpload = useCallback(async (files) => {
-    if (!listingId) return;
 
     setUploading(true);
     try {
@@ -62,85 +54,93 @@ export default function UploadGallery({ listingId }) {
       let position = (assets[assets.length - 1]?.position ?? -1) + 1;
 
       for (const file of files) {
-        const key = `user/${user.id}/listing/${listingId}/${Date.now()}-${file.name}`;
-        const publicUrl = await uploadToBucket(BUCKET, file, key);
+        // 1) upload to storage
+        const safeName = file.name.replace(/\s+/g, "_");
+        const key = `user/${user.id}/listing/${listingId}/${Date.now()}-${safeName}`;
 
-        const row = await insertAsset({
-          listing_id: listingId,
-          owner_id: user.id,
-          type: "image",
-          url: publicUrl,
-          mime: file.type,
-          position,
+        const { error: upErr } = await supabase.storage.from(BUCKET).upload(key, file, {
+          cacheControl: "3600",
+          upsert: false,
         });
+        if (upErr) throw upErr;
+
+        const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(key);
+        const url = urlData.publicUrl;
+
+        // 2) insert DB row
+        const { data: row, error: insErr } = await supabase
+          .from("listing_assets")
+          .insert({
+            listing_id: listingId,
+            owner_id: user.id,
+            type: "image",
+            url,
+            mime: file.type,
+            position,
+          })
+          .select("*")
+          .single();
+
+        if (insErr) throw insErr;
 
         position += 1;
         setAssets((a) => [...a, row]);
       }
     } catch (err) {
-      alert(err.message || "Upload failed");
+      alert(err.message || "Upload failed.");
     } finally {
       setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
     }
-  }, [listingId, assets]);
+  }
 
   async function remove(asset) {
     if (!confirm("Remove this image?")) return;
-    await deleteAsset(asset);
+
+    // best-effort: derive storage path from URL (optional)
+    // you can keep this simple and only delete DB row if your URLs don’t map 1:1 to paths.
+    const { error: delErr } = await supabase
+      .from("listing_assets")
+      .delete()
+      .eq("id", asset.id);
+
+    if (delErr) {
+      alert(delErr.message);
+      return;
+    }
+
     setAssets((a) => a.filter((x) => x.id !== asset.id));
   }
 
   return (
     <div className="space-y-3">
-      {/* uploader */}
-      <div
-        className={`flex flex-col items-center justify-center rounded-md border-2 border-dashed p-6 text-center transition ${
-          dragOver ? "border-cyan-600 bg-cyan-50" : "border-gray-300"
-        }`}
-        onDragEnter={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setDragOver(true);
-        }}
-        onDragOver={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={onDrop}
+      {/* Hidden native input + our visible CTA */}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/avif"
+        multiple
+        onChange={onChoose}
+        className="hidden"
+      />
+      <button
+        type="button"
+        onClick={openPicker}
+        disabled={uploading}
+        className="rounded-md bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-700 disabled:opacity-50"
       >
-        <p className="text-sm text-gray-600 mb-3">
-          Drag & drop images here, or
-        </p>
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          className="rounded-md bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-700 disabled:opacity-50"
-          disabled={uploading}
-        >
-          {uploading ? "Uploading…" : "Upload photos"}
-        </button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          hidden
-          onChange={onChoose}
-        />
-        <p className="mt-2 text-xs text-gray-500">
-          JPG/PNG/WebP/AVIF recommended. 50MB max each.
-        </p>
-      </div>
+        {uploading ? "Uploading…" : "Upload photos"}
+      </button>
 
-      {/* gallery */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+      {/* Thumbs */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
         {assets.map((a) => (
-          <div key={a.id} className="relative group overflow-hidden rounded border">
-            <img src={a.url} alt="" className="h-32 w-full object-cover" />
+          <div key={a.id} className="relative group border rounded overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={a.url} alt="" className="w-full h-32 object-cover" />
             <button
               onClick={() => remove(a)}
-              className="absolute right-1 top-1 rounded bg-black/60 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100"
+              className="absolute top-1 right-1 bg-black/60 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition"
             >
               Remove
             </button>

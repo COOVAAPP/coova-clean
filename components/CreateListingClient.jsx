@@ -1,18 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import UploadGallery from "@/components/UploadGallery";
 
 // ---------------------------
 // Config
 // ---------------------------
 const MAX_FILES = 12;
 const MAX_SIZE = 50 * 1024 * 1024; // 50MB
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
-const STORAGE_BUCKET = "listings"; // make sure this bucket exists & is public
 
-// Optional: categories you want to show
 const CATEGORIES = [
   "Studio",
   "Event Space",
@@ -23,7 +21,6 @@ const CATEGORIES = [
   "Other",
 ];
 
-// Optional: amenity suggestions (you can add/remove freely)
 const AMENITY_SUGGESTIONS = [
   "Wifi",
   "Parking",
@@ -52,17 +49,14 @@ export default function CreateListingClient() {
   const [price, setPrice] = useState(""); // dollars (string in UI)
   const [amenityInput, setAmenityInput] = useState("");
   const [amenities, setAmenities] = useState([]);
-  const [files, setFiles] = useState([]); // File[]
-  const [previews, setPreviews] = useState([]); // {url, name, size, type}[]
+
+  // Step/state
+  const [listingId, setListingId] = useState(null); // truthy after first save
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const fileInputRef = useRef(null);
-
-  // ---------------------------
-  // Load current session
-  // ---------------------------
+  // Load session
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -79,173 +73,110 @@ export default function CreateListingClient() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  // ---------------------------
-  // Image previews (clean up URLs)
-  // ---------------------------
-  useEffect(() => {
-    const urls = files.map((f) => ({
-      url: URL.createObjectURL(f),
-      name: f.name,
-      size: f.size,
-      type: f.type,
-    }));
-    setPreviews(urls);
-    return () => urls.forEach((p) => URL.revokeObjectURL(p.url));
-  }, [files]);
-
-  // ---------------------------
-  // Handlers
-  // ---------------------------
-  function onPickFiles(e) {
-    setError("");
-    const list = Array.from(e.target.files || []);
-    if (list.length === 0) return;
-
-    // validate & cap
-    const current = [...files];
-    for (const f of list) {
-      if (!ALLOWED_TYPES.includes(f.type)) {
-        setError("Only JPG/PNG/WebP/AVIF images are allowed.");
-        continue;
-      }
-      if (f.size > MAX_SIZE) {
-        setError(`Max file size is ${Math.round(MAX_SIZE / (1024 * 1024))}MB.`);
-        continue;
-      }
-      if (current.length >= MAX_FILES) {
-        setError(`You can upload up to ${MAX_FILES} images.`);
-        break;
-      }
-      current.push(f);
-    }
-    setFiles(current);
-    // reset input so same file can be reselected later
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
-  function removeFile(idx) {
-    setFiles((arr) => arr.filter((_, i) => i !== idx));
-  }
-
+  // Amenity helpers
   function addAmenityFromInput() {
     const v = amenityInput.trim();
     if (!v) return;
     if (!amenities.includes(v)) setAmenities((a) => [...a, v]);
     setAmenityInput("");
   }
-
   function removeAmenity(name) {
     setAmenities((a) => a.filter((x) => x !== name));
   }
 
   // ---------------------------
-  // Upload helpers
+  // Create a draft row if needed (used by Upload Photos button)
   // ---------------------------
-  async function uploadOne(file, userId) {
-    const safeName = file.name.replace(/\s+/g, "_");
-    const key = `${userId}/${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2)}-${safeName}`;
-
-    const { error: upErr } = await supabase.storage
-      .from(STORAGE_BUCKET)
-      .upload(key, file, {
-        cacheControl: "3600",
-        upsert: false,
-      });
-
-    if (upErr) throw upErr;
-
-    // if bucket is public, you can use public URL:
-    const { data: publicData } = supabase.storage
-      .from(STORAGE_BUCKET)
-      .getPublicUrl(key);
-
-    return { path: key, url: publicData.publicUrl };
-  }
-
-  // ---------------------------
-  // Submit
-  // ---------------------------
-  async function onSubmit(e) {
-    e.preventDefault();
+  async function createDraftIfNeeded() {
+    if (listingId) return listingId;
     setError("");
     setSuccess("");
 
     if (!userId) {
       setError("Please sign in to create a listing.");
-      return;
+      throw new Error("Not signed in");
     }
     if (!title.trim()) {
       setError("Title is required.");
-      return;
+      throw new Error("Missing title");
     }
     if (!price || isNaN(Number(price)) || Number(price) < 0) {
       setError("Price must be a valid number.");
-      return;
+      throw new Error("Bad price");
     }
 
+    setSubmitting(true);
+    const price_cents = Math.round(Number(price) * 100);
+
+    const insertPayload = {
+      user_id: userId,
+      title: title.trim(),
+      description: description.trim(),
+      category,
+      capacity: Number(capacity) || 1,
+      price_cents,
+      amenities,
+    };
+
+    const { data: row, error: dbErr } = await supabase
+      .from("listings")
+      .insert(insertPayload)
+      .select("*")
+      .single();
+
+    setSubmitting(false);
+
+    if (dbErr) {
+      setError(dbErr.message);
+      throw dbErr;
+    }
+
+    setListingId(row.id);
+    setSuccess("Listing created! Now add photos and Publish.");
+    return row.id;
+  }
+
+  // Submit (explicit Create listing button)
+  async function onCreateListing(e) {
+    e?.preventDefault?.();
+    await createDraftIfNeeded();
+  }
+
+  // Publish (optional: set cover to first image)
+  async function onPublish() {
+    if (!listingId) return;
     try {
       setSubmitting(true);
-
-      // Upload images (if any)
-      let uploaded = [];
-      for (const f of files) {
-        // eslint-disable-next-line no-await-in-loop
-        const u = await uploadOne(f, userId);
-        uploaded.push(u);
-      }
-
-      // Convert price dollars → cents (integers)
-      const price_cents = Math.round(Number(price) * 100);
-
-      // Choose cover image (first uploaded) if available
-      const cover_image = uploaded[0]?.path || null;
-      const images = uploaded.map((u) => u.path);
-
-      // Insert into DB
-      const insertPayload = {
-        user_id: userId,
-        title: title.trim(),
-        description: description.trim(),
-        category,
-        capacity: Number(capacity) || 1,
-        price_cents,
-        amenities,
-        cover_image,
-        images,
-      };
-
-      const { data: row, error: dbErr } = await supabase
-        .from("listings")
-        .insert(insertPayload)
+      const { data: assets } = await supabase
+        .from("listing_assets")
         .select("*")
-        .single();
+        .eq("listing_id", listingId)
+        .eq("type", "image")
+        .order("position", { ascending: true })
+        .limit(1);
 
-      if (dbErr) throw dbErr;
+      const cover = assets?.[0]?.url || null;
+      await supabase
+        .from("listings")
+        .update({ cover_image: cover })
+        .eq("id", listingId);
 
-      setSuccess("Listing created successfully!");
-      // Optional: route to the new listing page
-      setTimeout(() => {
-        router.push(`/listing/${row.id}`);
-      }, 800);
+      router.push(`/listing/${listingId}`);
     } catch (e) {
-      setError(e.message || "Something went wrong.");
+      setError(e.message || "Failed to publish.");
     } finally {
       setSubmitting(false);
     }
   }
 
-  const isDisabled = useMemo(() => {
-    return submitting || loadingUser;
-  }, [submitting, loadingUser]);
+  const isDisabled = useMemo(
+    () => submitting || loadingUser,
+    [submitting, loadingUser]
+  );
 
-  // ---------------------------
-  // UI
-  // ---------------------------
   return (
     <form
-      onSubmit={onSubmit}
+      onSubmit={onCreateListing}
       className="space-y-8 rounded-md border border-gray-200 bg-white p-6 shadow"
     >
       {/* Title */}
@@ -257,6 +188,7 @@ export default function CreateListingClient() {
           onChange={(e) => setTitle(e.target.value)}
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
           placeholder="e.g., Natural Light Loft with City View"
+          disabled={!!listingId}
         />
       </div>
 
@@ -269,6 +201,7 @@ export default function CreateListingClient() {
           onChange={(e) => setDescription(e.target.value)}
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
           placeholder="Describe the space, best uses, access notes, house rules, etc."
+          disabled={!!listingId}
         />
       </div>
 
@@ -280,6 +213,7 @@ export default function CreateListingClient() {
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
+            disabled={!!listingId}
           >
             {CATEGORIES.map((c) => (
               <option key={c} value={c}>
@@ -297,6 +231,7 @@ export default function CreateListingClient() {
             value={capacity}
             onChange={(e) => setCapacity(e.target.value)}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
+            disabled={!!listingId}
           />
         </div>
 
@@ -314,6 +249,7 @@ export default function CreateListingClient() {
               onChange={(e) => setPrice(e.target.value)}
               className="block w-full rounded-md border-gray-300 pl-7 shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
               placeholder="100"
+              disabled={!!listingId}
             />
           </div>
         </div>
@@ -329,130 +265,163 @@ export default function CreateListingClient() {
               className="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-white/80 px-3 py-1 text-xs font-medium text-gray-700 shadow-sm"
             >
               {a}
-              <button
-                type="button"
-                className="rounded-full px-1 text-gray-400 hover:text-gray-700"
-                onClick={() => removeAmenity(a)}
-                aria-label="Remove amenity"
-              >
-                ✕
-              </button>
+              {!listingId && (
+                <button
+                  type="button"
+                  className="rounded-full px-1 text-gray-400 hover:text-gray-700"
+                  onClick={() => removeAmenity(a)}
+                  aria-label="Remove amenity"
+                >
+                  ✕
+                </button>
+              )}
             </span>
           ))}
         </div>
 
-        <div className="mt-3 flex gap-2">
-          <input
-            type="text"
-            value={amenityInput}
-            onChange={(e) => setAmenityInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                addAmenityFromInput();
-              }
-            }}
-            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
-            placeholder="Add an amenity and press Enter"
-          />
-          <button
-            type="button"
-            className="rounded-md border px-3 font-bold hover:bg-gray-50"
-            onClick={addAmenityFromInput}
-          >
-            Add
-          </button>
-        </div>
-
-        {/* Quick suggestions */}
-        <div className="mt-3 flex flex-wrap gap-2">
-          {AMENITY_SUGGESTIONS.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => {
-                if (!amenities.includes(s)) setAmenities((a) => [...a, s]);
-              }}
-              className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs text-gray-600 hover:border-cyan-300 hover:bg-cyan-50"
-            >
-              + {s}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Images */}
-      <div>
-        <label className="block text-sm font-bold">Photos</label>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept={ALLOWED_TYPES.join(",")}
-          multiple
-          onChange={onPickFiles}
-          className="mt-2 block w-full text-sm"
-        />
-        <p className="mt-1 text-xs text-gray-500">
-          Up to {MAX_FILES} images, {Math.round(MAX_SIZE / (1024 * 1024))}MB max
-          each. JPG/PNG/WebP/AVIF.
-        </p>
-
-        {previews.length > 0 && (
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {previews.map((p, i) => (
-              <div
-                key={`${p.name}-${i}`}
-                className="relative overflow-hidden rounded-md border"
+        {!listingId && (
+          <>
+            <div className="mt-3 flex gap-2">
+              <input
+                type="text"
+                value={amenityInput}
+                onChange={(e) => setAmenityInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addAmenityFromInput();
+                  }
+                }}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
+                placeholder="Add an amenity and press Enter"
+              />
+              <button
+                type="button"
+                className="rounded-md border px-3 font-bold hover:bg-gray-50"
+                onClick={addAmenityFromInput}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={p.url}
-                  alt={p.name}
-                  className="h-40 w-full object-cover"
-                />
+                Add
+              </button>
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {AMENITY_SUGGESTIONS.map((s) => (
                 <button
+                  key={s}
                   type="button"
-                  onClick={() => removeFile(i)}
-                  className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-xs font-bold text-gray-700 shadow hover:bg-white"
+                  onClick={() => {
+                    if (!amenities.includes(s))
+                      setAmenities((a) => [...a, s]);
+                  }}
+                  className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs text-gray-600 hover:border-cyan-300 hover:bg-cyan-50"
                 >
-                  Remove
+                  + {s}
                 </button>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
-      {/* Alerts */}
-      {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-          {success}
-        </div>
-      )}
+      {/* Photos + Actions */}
+      {!listingId ? (
+        <>
+          {/* Upload photos CTA (creates draft first) */}
+          <div>
+            <label className="block text-sm font-bold mb-2">Photos</label>
+            <div className="rounded-md border-2 border-dashed border-gray-300 p-6 text-center">
+              <p className="text-sm text-gray-600 mb-3">
+                You’ll need a draft listing to upload photos.
+              </p>
+              <button
+                type="button"
+                disabled={isDisabled}
+                onClick={async () => {
+                  try {
+                    await createDraftIfNeeded();
+                    // After this, the gallery will render (listingId set)
+                  } catch {}
+                }}
+                className="rounded-md bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-700 disabled:opacity-50"
+              >
+                {submitting ? "Creating…" : "Upload photos"}
+              </button>
+              <p className="mt-2 text-xs text-gray-500">
+                Up to {MAX_FILES} images, {Math.round(MAX_SIZE / (1024 * 1024))}MB each.
+              </p>
+            </div>
+          </div>
 
-      {/* Submit */}
-      <div className="flex items-center justify-end gap-3">
-        <button
-          type="button"
-          className="rounded-md border px-4 py-2 font-bold hover:bg-gray-50"
-          onClick={() => router.back()}
-          disabled={isDisabled}
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={isDisabled}
-          className="rounded-md bg-cyan-500 px-4 py-2 font-bold text-white hover:bg-cyan-600 disabled:opacity-50"
-        >
-          {submitting ? "Saving…" : "Create listing"}
-        </button>
-      </div>
+          {/* Alerts */}
+          {error && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+              {success}
+            </div>
+          )}
+
+          {/* Step 1 actions */}
+          <div className="flex items-center justify-end gap-3">
+            <button
+              type="button"
+              className="rounded-md border px-4 py-2 font-bold hover:bg-gray-50"
+              onClick={() => router.back()}
+              disabled={isDisabled}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isDisabled}
+              className="rounded-md bg-cyan-500 px-4 py-2 font-bold text-white hover:bg-cyan-600 disabled:opacity-50"
+            >
+              {submitting ? "Saving…" : "Create listing"}
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Once we have an id, render the real gallery uploader */}
+          <div>
+            <label className="block text-sm font-bold mb-2">Photos</label>
+            <UploadGallery listingId={listingId} />
+            <p className="mt-2 text-xs text-gray-500">
+              Add up to {MAX_FILES} images (50MB each). You can remove or reorder later.
+            </p>
+          </div>
+
+          {/* Alerts */}
+          {error && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          {/* Step 2 actions */}
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              className="rounded-md border px-4 py-2 font-bold hover:bg-gray-50"
+              onClick={() => router.push(`/listing/${listingId}`)}
+              disabled={isDisabled}
+            >
+              View draft
+            </button>
+            <button
+              type="button"
+              onClick={onPublish}
+              disabled={isDisabled}
+              className="rounded-md bg-cyan-600 px-4 py-2 font-bold text-white hover:bg-cyan-700 disabled:opacity-50"
+            >
+              {submitting ? "Publishing…" : "Publish"}
+            </button>
+          </div>
+        </>
+      )}
     </form>
   );
 }
