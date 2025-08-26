@@ -1,99 +1,104 @@
 // app/browse/BrowseClient.jsx
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { supabase } from '@/lib/supabaseClient';
-import Filters from '@/components/BrowseFilters';
-import Pagination from '@/components/Pagination';
-
-const PAGE_SIZE = 12;
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function BrowseClient() {
-  const params = useSearchParams();
-
-  const page = Number(params.get('page') || 1);
-  const type = params.get('type') || '';     // e.g. "pools", "cars", "spaces"
-  const q = params.get('q') || '';           // search text
-
-  const [items, setItems] = useState([]);
-  const [total, setTotal] = useState(0);
+  const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
 
   useEffect(() => {
-    let cancelled = false;
+    let alive = true;
 
-    async function load() {
-      setLoading(true);
+    (async () => {
+      try {
+        setLoading(true);
+        setErr("");
 
-      // Base query
-      let query = supabase
-        .from('listings')
-        .select('*', { count: 'exact' })
-        .eq('is_public', true)
-        .order('created_at', { ascending: false })
-        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+        // Fetch a lightweight set of fields that match your schema
+        const { data, error } = await supabase
+          .from("listings")
+          .select(
+            "id,title,city,price_per_hour,cover_url,image_url,image_urls"
+          )
+          .eq("status", "active")        // change/remove if you use a different status field
+          .order("created_at", { ascending: false })
+          .limit(24);
 
-      if (type) query = query.eq('category', type);
-      if (q) query = query.ilike('title', `%${q}%`);
-
-      const { data, count, error } = await query;
-      if (cancelled) return;
-      if (error) {
-        console.error('Browse load error:', error);
-        setItems([]);
-        setTotal(0);
-      } else {
-        setItems(data || []);
-        setTotal(count || 0);
+        if (error) throw error;
+        if (!alive) return;
+        setRows(data ?? []);
+      } catch (e) {
+        if (!alive) return;
+        setErr(e.message || "Failed to load listings.");
+      } finally {
+        if (alive) setLoading(false);
       }
-      setLoading(false);
-    }
+    })();
 
-    load();
-    return () => { cancelled = true; };
-  }, [page, type, q]);
+    return () => { alive = false; };
+  }, []);
+
+  if (loading) {
+    return <p className="text-gray-500">Loading…</p>;
+  }
+  if (err) {
+    return (
+      <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        {err}
+      </div>
+    );
+  }
+  if (rows.length === 0) {
+    return <p className="text-gray-600">No listings yet. Try again later.</p>;
+  }
 
   return (
-    <div className="space-y-6">
-      <Filters />
+    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      {rows.map((l) => {
+        // Pick a cover image from your possible fields
+        const cover =
+          l.cover_url ||
+          l.image_url ||
+          (Array.isArray(l.image_urls) ? l.image_urls[0] : null);
 
-      {loading ? (
-        <p className="text-gray-500">Loading listings…</p>
-      ) : items.length === 0 ? (
-        <p className="text-gray-600">No listings match your filters.</p>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {items.map((item) => (
-            <div key={item.id} className="card">
-              <div className="aspect-[4/3] overflow-hidden rounded-md">
-                <img
-                  src={item.image_url || item.images?.[0] || '/placeholder.jpg'}
-                  alt={item.title}
-                  className="h-full w-full object-cover"
+        return (
+          <Link
+            key={l.id}
+            href={`/listing/${l.id}`}
+            className="group overflow-hidden rounded-lg border border-gray-200 bg-white hover:shadow"
+          >
+            <div className="relative aspect-[4/3] w-full bg-gray-50">
+              {cover ? (
+                <Image
+                  src={cover}
+                  alt={l.title || "Listing"}
+                  fill
+                  className="object-cover transition-transform group-hover:scale-[1.02]"
                 />
-              </div>
-              <div className="mt-3">
-                <div className="font-semibold">{item.title}</div>
-                <div className="text-sm text-gray-500">
-                  {item.city ? `${item.city}, ` : ''}{item.state || ''}
+              ) : (
+                <div className="flex h-full items-center justify-center text-gray-400">
+                  No photo
                 </div>
-                <div className="mt-1 text-sm">
-                  <span className="font-semibold">${item.price}</span> / hour
-                </div>
-                <a
-                  className="btn primary mt-3 inline-block"
-                  href={`/list/${item.id}`}
-                >
-                  View
-                </a>
-              </div>
+              )}
             </div>
-          ))}
-        </div>
-      )}
-
-      <Pagination page={page} total={total} pageSize={PAGE_SIZE} />
+            <div className="p-3">
+              <p className="line-clamp-1 text-sm font-semibold">
+                {l.title || "Listing"}
+              </p>
+              <p className="mt-1 text-xs text-gray-500">{l.city || ""}</p>
+              <p className="mt-2 text-sm font-bold">
+                ${Number(l.price_per_hour ?? 0).toLocaleString()}{" "}
+                <span className="text-xs font-normal text-gray-500">/ hour</span>
+              </p>
+            </div>
+          </Link>
+        );
+      })}
     </div>
   );
 }

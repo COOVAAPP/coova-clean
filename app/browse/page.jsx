@@ -1,9 +1,8 @@
 // app/browse/page.jsx
-import { Suspense } from 'react';
-import BrowseClient from './BrowseClient';
+import { Suspense } from "react";
+import BrowseClient from "./BrowseClient";
 
-// Prevent static prerender errors for client search params
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export default function BrowsePage() {
   return (
