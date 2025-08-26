@@ -44,7 +44,7 @@ export default function ListingBrowseClient() {
       try {
         let query = supabase
           .from("listings")
-          .select("id,title,city,price_cents,cover_url,amenities", { count: "exact" })
+          .select("id,title,city,price_per_hour,cover_url,amenities", { count: "exact" })
           .range(from, to)
           .order("created_at", { ascending: false });
 
@@ -100,8 +100,8 @@ export default function ListingBrowseClient() {
             key={l.id}
             id={l.id}
             title={l.title}
-            city={l.city}
-            priceCents={l.price_cents}
+            city={l.city}price_per_hour
+            priceCents={l.price_per_hour}
             coverUrl={l.cover_url}
             amenities={l.amenities}
           />

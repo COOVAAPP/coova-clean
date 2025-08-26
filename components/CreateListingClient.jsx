@@ -106,16 +106,15 @@ export default function CreateListingClient() {
     }
 
     setSubmitting(true);
-    const price_cents = Number(price);
+    const price_per_hour = Number(price);
 
     const insertPayload = {
       owner_id: userId,
-      user_id: userId,
       title: title.trim(),
       description: description.trim(),
       category,
       capacity: Number(capacity) || 1,
-      price_cents,
+      price_per_hour,
       amenities,
     };
 

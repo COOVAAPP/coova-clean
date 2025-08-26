@@ -31,7 +31,7 @@ async function getListingWithExtras(id) {
       description,
       cover_url,
       images,            -- array of urls (text[]) or null
-      price_cents,
+      price_per_hour,
       owner_id,
       amenities,         -- text[] or json[]
       address_line1,
@@ -62,7 +62,7 @@ async function getListingWithExtras(id) {
   if (listing?.city) {
     const { data } = await supabase
       .from("listings")
-      .select("id,title,cover_url,price_cents,city")
+      .select("id,title,cover_url,price_per_hour,city")
       .eq("city", listing.city)
       .neq("id", id)
       .limit(6);
@@ -70,7 +70,7 @@ async function getListingWithExtras(id) {
   } else if (listing?.country) {
     const { data } = await supabase
       .from("listings")
-      .select("id,title,cover_url,price_cents,city")
+      .select("id,title,cover_url,price_per_hour,city")
       .eq("country", listing.country)
       .neq("id", id)
       .limit(6);
@@ -122,7 +122,7 @@ export default async function ListingPage({ params }) {
   const { listing, related } = data;
 
   const title = listing.title || "Untitled listing";
-  const priceCents = listing.price_cents ?? 0;
+  const priceCents = listing.price_per_hour ?? 0;
   const ownerId = listing.owner_id;
   const coverUrl = listing.cover_url;
   const gallery = Array.isArray(listing.images) ? listing.images.filter(Boolean) : [];
@@ -326,7 +326,7 @@ export default async function ListingPage({ params }) {
                 <div className="p-3">
                   <p className="line-clamp-1 text-sm font-semibold">{r.title || "Listing"}</p>
                   <p className="mt-1 text-xs text-gray-500">{r.city || ""}</p>
-                  <p className="mt-2 text-sm font-bold">{money(r.price_cents)}</p>
+                  <p className="mt-2 text-sm font-bold">{money(r.price_per_hour)}</p>
                 </div>
               </Link>
             ))}

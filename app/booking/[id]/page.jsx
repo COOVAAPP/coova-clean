@@ -56,7 +56,7 @@ export default function BookingPage() {
       // fetch listing
       const { data: l, error } = await supabase
         .from("listings")
-        .select("id, owner_id, title, price_cents, address, images")
+        .select("id, owner_id, title, price_per_hour, address, images")
         .eq("id", listingId)
         .maybeSingle();
 
@@ -87,7 +87,7 @@ export default function BookingPage() {
 
   const pricePerHour = useMemo(() => {
     if (!listing) return 0;
-    return listing.price_cents || 0;
+    return listing.price_per_hour || 0;
   }, [listing]);
 
   const totalCents = useMemo(() => {
