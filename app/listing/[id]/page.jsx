@@ -18,37 +18,38 @@ async function getClient() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
+const SELECT = `
+  id,
+  title,
+  description,
+  cover_url,
+  images,
+  image_url,
+  image_urls,
+  price_per_hour,
+  owner_id,
+  amenities,
+  address_line1,
+  city,
+  state,
+  country,
+  lat,
+  lng,
+  profiles:owner_id (
+    id,
+    first_name,
+    last_name,
+    avatar_url,
+    bio
+  )
+`;
+
 async function getListingWithExtras(id) {
   const supabase = await getClient();
 
-  // Pull the listing + host profile in one query. Adjust columns to your schema.
   const { data: listing, error } = await supabase
     .from("listings")
-    .select(
-      `
-      id,
-      title,
-      description,
-      cover_url,
-      images,            -- array of urls (text[]) or null
-      price_per_hour,
-      owner_id,
-      amenities,         -- text[] or json[]
-      address_line1,
-      city,
-      state,
-      country,
-      lat,
-      lng,
-      profiles:owner_id (
-        id,
-        first_name,
-        last_name,
-        avatar_url,
-        bio
-      )
-    `
-    )
+    .select(SELECT)
     .eq("id", id)
     .single();
 
@@ -77,15 +78,7 @@ async function getListingWithExtras(id) {
     related = data ?? [];
   }
 
-  // (Optional) Reviews aggregate – stubbed for now; wire your table name if you have one.
-  // const { data: reviewsAgg } = await supabase
-  //   .from("reviews")
-  //   .select("rating, count")
-  //   .eq("listing_id", id)
-  //   .single();
-  const reviewsAgg = null;
-
-  return { listing, related, reviewsAgg };
+  return { listing, related, reviewsAgg: null };
 }
 
 /* ------------------------------------------
@@ -94,20 +87,13 @@ async function getListingWithExtras(id) {
 function money(cents) {
   return `$${((cents ?? 0) / 100).toLocaleString()}`;
 }
-
 function fullAddress(l) {
   const parts = [l?.address_line1, l?.city, l?.state, l?.country].filter(Boolean);
   return parts.join(", ");
 }
-
 function mapSrc({ lat, lng, q }) {
-  // no API key required for simple embed, but you can switch to Google Maps Embed if you have a key
-  if (lat && lng) {
-    return `https://maps.google.com/maps?q=${lat},${lng}&z=13&output=embed`;
-  }
-  if (q) {
-    return `https://maps.google.com/maps?q=${encodeURIComponent(q)}&z=13&output=embed`;
-  }
+  if (lat && lng) return `https://maps.google.com/maps?q=${lat},${lng}&z=13&output=embed`;
+  if (q) return `https://maps.google.com/maps?q=${encodeURIComponent(q)}&z=13&output=embed`;
   return null;
 }
 
@@ -124,19 +110,25 @@ export default async function ListingPage({ params }) {
   const title = listing.title || "Untitled listing";
   const priceCents = listing.price_per_hour ?? 0;
   const ownerId = listing.owner_id;
-  const coverUrl = listing.cover_url;
-  const gallery = Array.isArray(listing.images) ? listing.images.filter(Boolean) : [];
-  const amenities =
-    Array.isArray(listing.amenities) ? listing.amenities : (listing.amenities?.items ?? []);
+  const coverUrl = listing.cover_url || listing.image_url || null;
+
+  // Build gallery from whatever columns exist:
+  const gallery =
+    (Array.isArray(listing.image_urls) && listing.image_urls.length
+      ? listing.image_urls
+      : Array.isArray(listing.images)
+      ? listing.images
+      : []
+    ).filter(Boolean);
+
+  const amenities = Array.isArray(listing.amenities)
+    ? listing.amenities
+    : listing.amenities?.items ?? [];
+
   const host = listing.profiles || null;
 
-  /* Map */
   const address = fullAddress(listing);
-  const mapUrl = mapSrc({
-    lat: listing.lat,
-    lng: listing.lng,
-    q: address,
-  });
+  const mapUrl = mapSrc({ lat: listing.lat, lng: listing.lng, q: address });
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-10">
@@ -146,7 +138,8 @@ export default async function ListingPage({ params }) {
         <div className="text-right">
           <p className="text-xs text-gray-500">From</p>
           <p className="text-2xl font-extrabold">
-            {money(priceCents)} <span className="ml-1 text-sm font-normal text-gray-500">/ hour</span>
+            {money(priceCents)}{" "}
+            <span className="ml-1 text-sm font-normal text-gray-500">/ hour</span>
           </p>
         </div>
       </header>
@@ -180,7 +173,6 @@ export default async function ListingPage({ params }) {
               <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {gallery.map((src, i) => (
                   <div key={i} className="relative aspect-[4/3] overflow-hidden rounded-md border">
-                    {/* if remote domains, allow in next.config images.domains */}
                     <Image src={src} alt={`Photo ${i + 1}`} fill className="object-cover" />
                   </div>
                 ))}
@@ -198,15 +190,15 @@ export default async function ListingPage({ params }) {
 
           {/* Amenities */}
           {amenities && amenities.length > 0 && (
-          <section className="mt-6">
-             <h2 className="text-lg font-semibold">Amenities</h2>
-             <div className="mt-3 flex flex-wrap gap-2">
+            <section className="mt-6">
+              <h2 className="text-lg font-semibold">Amenities</h2>
+              <div className="mt-3 flex flex-wrap gap-2">
                 {amenities.map((a, i) => (
-                 <AmenityPill key={`${String(a)}-${i}`} name={String(a)} />
-             ))}
-            </div>
-        </section>
-      )}
+                  <AmenityPill key={`${String(a)}-${i}`} name={String(a)} />
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Location */}
           {(mapUrl || address) && (
@@ -275,16 +267,14 @@ export default async function ListingPage({ params }) {
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-white font-bold">
-                      {((host.first_name?.[0] || host.last_name?.[0] || "U") + "").toUpperCase()}
+                      {((host.first_name?.[0] || host.last_name?.[0] || "U") + "")
+                        .toUpperCase()}
                     </div>
                   )}
                 </div>
                 <div>
                   <p className="text-sm font-semibold">
                     {[host.first_name, host.last_name].filter(Boolean).join(" ") || "Host"}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {/* You could show join date, response rate, etc. */}
                   </p>
                 </div>
               </div>
@@ -320,7 +310,9 @@ export default async function ListingPage({ params }) {
                       className="object-cover transition-transform group-hover:scale-[1.02]"
                     />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-gray-400">No photo</div>
+                    <div className="flex h-full items-center justify-center text-gray-400">
+                      No photo
+                    </div>
                   )}
                 </div>
                 <div className="p-3">
