@@ -109,6 +109,7 @@ export default function CreateListingClient() {
     const price_cents = Math.round(Number(price) * 100);
 
     const insertPayload = {
+      owner_id: userId,
       user_id: userId,
       title: title.trim(),
       description: description.trim(),
