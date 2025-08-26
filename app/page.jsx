@@ -1,21 +1,11 @@
 // app/page.jsx
-"use client";   // ✅ make this a client component
+export const dynamic = "force-dynamic";
 
-import { Suspense } from "react";
-import HomeClient from "./HomeClient";
-
-export default function Page() {
+export default function HomePage() {
   return (
-    <main className="min-h-screen">
-      <Suspense
-        fallback={
-          <div className="max-w-6xl mx-auto px-4 py-10">
-            <p className="text-gray-600">Loading…</p>
-          </div>
-        }
-      >
-        <HomeClient />
-      </Suspense>
+    <main className="container-page py-10">
+      <h1 className="text-2xl font-extrabold text-cyan-500">COOVA</h1>
+      <p className="mt-2 text-gray-700">Welcome! Home is rendering.</p>
     </main>
   );
 }

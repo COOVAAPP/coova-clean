@@ -1,19 +1,29 @@
-// app/error.jsx
-'use client';
+"use client";
+import { useEffect } from "react";
 
 export default function GlobalError({ error, reset }) {
+  useEffect(() => {
+    console.error("App error:", error);
+  }, [error]);
+
   return (
-    <main className="container-page py-16">
-      <h2 className="text-2xl font-bold mb-4">Something went wrong</h2>
-      <pre className="bg-gray-100 p-4 rounded text-xs whitespace-pre-wrap">
-        {String(error?.message || error)}
-      </pre>
-      <button
-        onClick={() => reset()}
-        className="mt-4 rounded bg-black text-white px-4 py-2"
-      >
-        Try again
-      </button>
-    </main>
+    <html>
+      <body className="min-h-screen grid place-items-center p-6">
+        <div className="max-w-lg w-full space-y-3">
+          <h1 className="text-xl font-bold">Something went wrong</h1>
+          <p className="text-sm text-gray-600">
+            {process.env.NODE_ENV !== "production"
+              ? String(error?.message || error)
+              : "Please try again."}
+          </p>
+          <button
+            onClick={() => reset()}
+            className="rounded bg-cyan-600 px-3 py-1.5 text-white"
+          >
+            Try again
+          </button>
+        </div>
+      </body>
+    </html>
   );
 }
