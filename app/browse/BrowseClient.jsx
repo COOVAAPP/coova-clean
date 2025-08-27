@@ -3,37 +3,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-// If your client is in a different path, update this import:
 import { supabase } from "@/lib/supabaseClient";
-
-/**
- * Super defensive browser-only list view.
- * - Fetches only fields we know exist in your schema.
- * - Uses <img> (not next/image) so you don’t need images.domains config.
- * - Computes a cover from `image_url` or first of `image_urls`.
- */
-
-function coverFrom(l) {
-  // image_url takes precedence
-  if (l?.image_url) return l.image_url;
-
-  // image_urls can be jsonb array (already parsed by supabase-js) OR stringified JSON.
-  const arr =
-    Array.isArray(l?.image_urls)
-      ? l.image_urls
-      : typeof l?.image_urls === "string"
-      ? (() => {
-          try {
-            const parsed = JSON.parse(l.image_urls);
-            return Array.isArray(parsed) ? parsed : [];
-          } catch {
-            return [];
-          }
-        })()
-      : [];
-
-  return arr.find((x) => typeof x === "string" && x.length > 0) || null;
-}
 
 export default function BrowseClient() {
   const [rows, setRows] = useState([]);
@@ -48,33 +18,39 @@ export default function BrowseClient() {
         setErr("");
         setLoading(true);
 
-        // Only select columns we know you have.
+        // Be generous with columns; some may not exist in your DB.
         const { data, error } = await supabase
           .from("listings")
-          .select(
-            // id + a few safe fields (adjust if you rename)
-            "id, title, price_per_hour, city, image_url, image_urls, status, is_public"
-          )
-          // keep it simple; show everything for now
-          .order("id", { ascending: false })
-          .limit(60);
+          .select("id,title,description,image_url,cover_url,image_urls,price_per_hour,city")
+          .order("created_at", { ascending: false })
+          .limit(24);
 
-        if (error) throw error;
-        if (!alive) return;
+        if (error) {
+          console.error("[Browse] Supabase error:", error);
+          throw error;
+        }
 
-        const normalized =
-          (data || []).map((l) => ({
-            id: l.id,
-            title: l.title || "Untitled",
-            city: l.city || "",
-            price_per_hour: l.price_per_hour ?? null,
-            cover: coverFrom(l),
-          })) ?? [];
+        // Normalize rows safely
+        const normalized = (data || []).map((r) => {
+          const gallery = Array.isArray(r.image_urls) ? r.image_urls.filter(Boolean) : [];
+          const cover =
+            r.image_url ||
+            r.cover_url ||
+            gallery[0] ||
+            null;
 
-        setRows(normalized);
+          return {
+            id: r.id,
+            title: r.title || "Untitled",
+            city: r.city || "",
+            price: typeof r.price_per_hour === "number" ? r.price_per_hour : null,
+            cover,
+          };
+        });
+
+        if (alive) setRows(normalized);
       } catch (e) {
-        setErr(e?.message || "Failed to load listings.");
-        setRows([]);
+        if (alive) setErr(e.message || "Failed to load listings.");
       } finally {
         if (alive) setLoading(false);
       }
@@ -91,30 +67,30 @@ export default function BrowseClient() {
 
   if (err) {
     return (
-      <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+      <div className="rounded-md border border-red-200 bg-red-50 p-4 text-red-700">
         {err}
       </div>
     );
   }
 
-  if (!rows.length) {
+  if (rows.length === 0) {
     return <p className="text-gray-600">No listings yet.</p>;
   }
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {rows.map((l) => (
+      {rows.map((r) => (
         <Link
-          key={l.id}
-          href={`/listing/${l.id}`}
+          key={r.id}
+          href={`/listing/${r.id}`}
           className="group overflow-hidden rounded-lg border border-gray-200 bg-white hover:shadow"
         >
-          <div className="relative aspect-[4/3] w-full bg-gray-100">
-            {l.cover ? (
-              // Using <img> to avoid next/image domain config issues
+          <div className="relative aspect-[4/3] w-full bg-gray-50">
+            {r.cover ? (
+              // Use plain <img> to avoid Next image-domain hurdles
               <img
-                src={l.cover}
-                alt={l.title}
+                src={r.cover}
+                alt={r.title}
                 className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
               />
             ) : (
@@ -124,15 +100,11 @@ export default function BrowseClient() {
             )}
           </div>
           <div className="p-3">
-            <p className="line-clamp-1 text-sm font-semibold">{l.title}</p>
-            {l.city ? (
-              <p className="mt-1 text-xs text-gray-500">{l.city}</p>
-            ) : null}
-            <p className="mt-2 text-sm font-bold">
-              {typeof l.price_per_hour === "number"
-                ? `$${Number(l.price_per_hour).toLocaleString()}`
-                : "—"}
-            </p>
+            <p className="line-clamp-1 text-sm font-semibold">{r.title}</p>
+            <p className="mt-1 text-xs text-gray-500">{r.city}</p>
+            {typeof r.price === "number" && (
+              <p className="mt-2 text-sm font-bold">${r.price.toLocaleString()}</p>
+            )}
           </div>
         </Link>
       ))}

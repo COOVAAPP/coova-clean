@@ -8,19 +8,12 @@ const supaHost = process.env.NEXT_PUBLIC_SUPABASE_URL
 
 const nextConfig = {
   experimental: {
-    optimizeCss: false, // you already had this
+    optimizeCss: false, // keep your current flag
   },
   images: {
-    // Allow optimized images from your Supabase public bucket
-    remotePatterns: supaHost
-      ? [
-          {
-            protocol: "https",
-            hostname: supaHost,
-            pathname: "/storage/v1/object/public/**",
-          },
-        ]
-      : [],
+    remotePatterns: [
+      { protocol: "https", hostname: "**.supabase.co", pathname: "/storage/v1/object/public/**" },
+    ],
   },
 };
 
