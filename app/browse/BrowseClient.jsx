@@ -21,7 +21,7 @@ export default function BrowseClient() {
         // Be generous with columns; some may not exist in your DB.
         const { data, error } = await supabase
           .from("listings")
-          .select("id,title,description,image_url,cover_url,image_urls,price_per_hour,city")
+          .select("id,title,description,image_url,image_url,image_urls,price_per_hour,city")
           .order("created_at", { ascending: false })
           .limit(24);
 
