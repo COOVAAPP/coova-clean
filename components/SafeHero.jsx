@@ -1,91 +1,194 @@
 // components/SafeHero.jsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import Image from "next/image";
 
 export default function SafeHero({
   images = [],
-  intervalMs = 4000,
-  className = "",
+  intervalMs = 6000,
+  height = "h-[75vh]",
+  swipeThreshold = 50, // px required to trigger a swipe
 }) {
-  // Fallback single image if none provided (replace with a safe public URL if you want)
-  const defaults = useMemo(
-    () => [
-      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg1.jpg",
-      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg2.jpg",
-      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg3.jpg",
-      "https://opnqqloemtaaowfttafs.supabase.co/storage/v1/object/public/Public/bg4.jpg",,
-    ],
-    []
-  );
+  const [index, setIndex] = useState(0);
 
-  const pics = images.length ? images : defaults;
+  const countRef = useRef(images.length);
+  const timerRef = useRef(null);
 
-  // Preload on the client to avoid flashes
+  // touch tracking
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+  const touchDx = useRef(0);
+  const isSwiping = useRef(false);
+
+  // keep ref in sync if images array changes
   useEffect(() => {
-    pics.forEach((src) => {
-      const img = new Image();
-      img.src = src;
-    });
-  }, [pics]);
+    countRef.current = images.length;
+    if (index >= images.length) setIndex(0);
+  }, [images.length, index]);
 
-  const [idx, setIdx] = useState(0);
-  const hoverRef = useRef(false);
+  const goTo = useCallback((i) => {
+    const count = countRef.current;
+    if (!count) return;
+    setIndex(((i % count) + count) % count);
+  }, []);
 
-  useEffect(() => {
-    const t = setInterval(() => {
-      if (!hoverRef.current) setIdx((i) => (i + 1) % pics.length);
+  const next = useCallback(() => goTo(index + 1), [goTo, index]);
+  const prev = useCallback(() => goTo(index - 1), [goTo, index]);
+
+  // -- Auto-rotate helpers ---------------------------------------------------
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const startTimer = useCallback(() => {
+    stopTimer();
+    if (countRef.current <= 1) return;
+    timerRef.current = setInterval(() => {
+      // use functional form to avoid stale index
+      setIndex((i) => ((i + 1) % countRef.current));
     }, intervalMs);
-    return () => clearInterval(t);
-  }, [pics.length, intervalMs]);
+  }, [intervalMs, stopTimer]);
 
-  const bg = { backgroundImage: `url('${pics[idx]}')` };
+  useEffect(() => {
+    startTimer();
+    return () => stopTimer();
+  }, [startTimer, stopTimer]);
 
-return (
-  <section className={`relative w-full overflow-clip ${className || ""}`}>
-    {/* 1) Image layer */}
-    <div
-      className="h-[420px] sm:h-[520px] lg:h-[640px] bg-center bg-cover transition-opacity duration-700 z-0"
-      style={bg}
-      onMouseEnter={() => { hoverRef.current = true; }}
-      onMouseLeave={() => { hoverRef.current = false; }}
-      aria-label="Welcome to COOVA hero"
-    />
+  // -- Keyboard navigation ---------------------------------------------------
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "ArrowRight") {
+        stopTimer();
+        next();
+        startTimer();
+      }
+      if (e.key === "ArrowLeft") {
+        stopTimer();
+        prev();
+        startTimer();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [next, prev, stopTimer, startTimer]);
 
-    {/* 2) Gradient/overlay (visual only) */}
-    <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/0 z-10" />
+  // -- Touch swipe (mobile) --------------------------------------------------
+  const onTouchStart = (e) => {
+    if (!e.touches || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    touchStartX.current = t.clientX;
+    touchStartY.current = t.clientY;
+    touchDx.current = 0;
+    isSwiping.current = true;
+    stopTimer();
+  };
 
-    {/* 3) Content — IMPORTANT: allow pointer events */}
-    <div className="absolute inset-0 z-20 flex items-center">
-      <div className="container-page">
-        <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white">
-          Welcome to <span className="text-cyan-500">COOVA</span>
-        </h1>
-        <p className="mt-2 max-w-2xl text-white/90">
-          Discover luxury pools, unique venues, and cars — or become a host and earn with your space.
-        </p>
+  const onTouchMove = (e) => {
+    if (!isSwiping.current || !e.touches || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    const dx = t.clientX - touchStartX.current;
+    const dy = t.clientY - touchStartY.current;
 
-        <div className="mt-6 flex flex-col sm:flex-row gap-4">
-          <a
-            href="/browse"
-            className="inline-flex items-center rounded-full border-2 border-cyan-500 bg-white px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-cyan-50"
-          >
-            Explore Now
-          </a>
+    // Only consider mostly-horizontal gestures
+    if (Math.abs(dx) > Math.abs(dy)) {
+      e.preventDefault(); // reduce scroll interference while swiping horizontally
+      touchDx.current = dx;
+    }
+  };
 
-          {/* This stays a button; Header handles auth-guarded navigation too */}
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              if (typeof window !== "undefined") window.location.href = "/list/create";
-            }}
-              className="inline-flex items-center rounded-full border-2 border-cyan-500 bg-white px-6 py-3 font-semibold text-cyan-500 shadow hover:bg-cyan-50"
-          >
-            List Your Space
-          </button>
+  const onTouchEnd = () => {
+    if (!isSwiping.current) return;
+    const dx = touchDx.current;
+    isSwiping.current = false;
+    touchDx.current = 0;
+
+    if (Math.abs(dx) >= swipeThreshold) {
+      if (dx < 0) next(); // swipe left → next
+      else prev();        // swipe right → prev
+    }
+
+    startTimer();
+  };
+
+  if (!images.length) return null;
+
+  return (
+    <section
+      className={`relative w-full overflow-hidden ${height}`}
+      aria-roledescription="carousel"
+      aria-label="Featured spaces"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
+      {/* Slides (fade) */}
+      {images.map((src, i) => (
+        <div
+          key={i}
+          className={`absolute inset-0 transition-opacity duration-700 ${
+            i === index ? "opacity-100 z-10" : "opacity-0 z-0"
+          }`}
+          aria-hidden={i === index ? "false" : "true"}
+        >
+          <Image
+            src={src}
+            alt={`Hero ${i + 1}`}
+            fill
+            priority={i === 0}
+            className="object-cover"
+          />
+        </div>
+      ))}
+
+      {/* Overlay for contrast */}
+      <div className="pointer-events-none absolute inset-0 bg-black/40" aria-hidden="true" />
+
+      {/* Headline / subtext (optional; remove if you already render text elsewhere) */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="pointer-events-auto text-center px-4">
+          <h1 className="text-white text-3xl sm:text-5xl font-extrabold tracking-tight">
+            Find unique spaces.
+            <br className="hidden sm:block" />
+            Host unforgettable moments.
+          </h1>
+          <p className="mt-3 sm:mt-4 text-white/90 text-sm sm:text-base max-w-2xl mx-auto">
+            COOVA connects creators and hosts—from studios and rooftops to kitchens, cars, and more.
+          </p>
         </div>
       </div>
-    </div>
-  </section>
-);
+
+      {/* Dots (clickable + focus rings) */}
+      <div
+        className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2"
+        role="tablist"
+        aria-label="Slide chooser"
+      >
+        {images.map((_, i) => {
+          const active = i === index;
+          return (
+            <button
+              key={i}
+              role="tab"
+              aria-selected={active}
+              aria-label={`Slide ${i + 1}`}
+              tabIndex={0}
+              onClick={() => {
+                stopTimer();
+                setIndex(i);
+                startTimer();
+              }}
+              className={`h-3 w-3 rounded-full transition transform outline-none
+                ${active ? "bg-white scale-110" : "bg-white/60 hover:bg-white/80"}
+                focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black
+              `}
+            />
+          );
+        })}
+      </div>
+    </section>
+  );
 }
