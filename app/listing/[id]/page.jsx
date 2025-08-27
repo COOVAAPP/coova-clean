@@ -1,5 +1,4 @@
 // app/listing/[id]/page.jsx
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import BookingForm from "@/components/BookingForm";
@@ -8,128 +7,155 @@ import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
-/* ──────────────────────────────────────────────
-   Supabase (server)
-────────────────────────────────────────────── */
-function getClient() {
+/* ──────────────────────────────────────────────────────────
+   Supabase client (server)
+   ────────────────────────────────────────────────────────── */
+async function getClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) throw new Error("Missing Supabase env vars");
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-async function getListingWithExtras(id) {
-  const supabase = getClient();
+/* Build a public URL no matter how it’s stored (full URL or path) */
+function toPublicUrl(maybePathOrUrl) {
+  if (!maybePathOrUrl) return null;
+  if (/^https?:\/\//i.test(maybePathOrUrl)) return maybePathOrUrl; // already full URL
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  // Default bucket name you’ve been using for photos
+  const bucket = "listings"; 
+  // Encode each path segment safely
+  const safe = maybePathOrUrl
+    .split("/")
+    .map(encodeURIComponent)
+    .join("/");
+  return `${base}/storage/v1/object/public/${bucket}/${safe}`;
+}
 
-  // ONLY select columns that exist in your `listings` table
+/* Friendly money display (price_per_hour is numeric in USD) */
+function money(usdNumber) {
+  const n = Number(usdNumber || 0);
+  return `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+}
+
+function fullAddress(l) {
+  const parts = [l?.address_line1, l?.city, l?.state, l?.country].filter(Boolean);
+  return parts.join(", ");
+}
+
+function mapSrc({ lat, lng, q }) {
+  if (lat && lng) return `https://maps.google.com/maps?q=${lat},${lng}&z=13&output=embed`;
+  if (q) return `https://maps.google.com/maps?q=${encodeURIComponent(q)}&z=13&output=embed`;
+  return null;
+}
+
+/* Fetch listing + host + a few related */
+async function getListingWithExtras(id) {
+  const supabase = await getClient();
+
+  // IMPORTANT: use image_urls (array) and cover_url (single)
   const { data: listing, error } = await supabase
     .from("listings")
     .select(
       `
+      id,
+      title,
+      description,
+      cover_url,
+      image_urls,          -- ← array of paths/urls
+      price_per_hour,
+      owner_id,
+      amenities,           -- jsonb/text[]
+      address_line1,
+      city,
+      state,
+      country,
+      lat, lng,
+      profiles:owner_id(
         id,
-        title,
-        description,
-        image_url,
-        image_urls,
-        price_per_hour,
-        owner_id,
-        amenities,
-        profiles:owner_id (
-          id, first_name, last_name, avatar_url, bio
-        )
-      `
+        first_name,
+        last_name,
+        avatar_url,
+        bio
+      )
+    `
     )
     .eq("id", id)
     .single();
 
   if (error) {
-    // PGRST116 = row not found
     if (error.code === "PGRST116") return null;
     throw error;
   }
 
-  // “Related” – just grab a few others without relying on city/country columns
-  const { data: related } = await supabase
-    .from("listings")
-    .select("id,title,image_url,price_per_hour")
-    .neq("id", id)
-    .order("id", { ascending: false })
-    .limit(6);
+  // A couple related (same city, else same country)
+  let related = [];
+  const by = listing?.city ? { city: listing.city } : listing?.country ? { country: listing.country } : null;
+  if (by) {
+    const { data } = await supabase
+      .from("listings")
+      .select("id,title,cover_url,price_per_hour,city")
+      .match(by)
+      .neq("id", id)
+      .limit(6);
+    related = data ?? [];
+  }
 
-  return { listing, related: related ?? [] };
+  return { listing, related };
 }
 
-/* ──────────────────────────────────────────────
-   Helpers
-────────────────────────────────────────────── */
-function moneyUSD(n) {
-  const num = Number(n || 0);
-  return num.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-}
-
-/* ──────────────────────────────────────────────
+/* ──────────────────────────────────────────────────────────
    Page
-────────────────────────────────────────────── */
+   ────────────────────────────────────────────────────────── */
 export default async function ListingPage({ params }) {
   const { id } = params;
+
   const data = await getListingWithExtras(id);
   if (!data?.listing) notFound();
 
   const { listing, related } = data;
 
   const title = listing.title || "Untitled listing";
-  const price = listing.price_per_hour ?? 0;
+  const pricePerHour = listing.price_per_hour ?? 0;
   const ownerId = listing.owner_id;
 
-  const coverUrl =
-    listing.image_url ||
-    (Array.isArray(listing.image_urls) && listing.image_urls.length > 0
-      ? listing.image_urls[0]
-      : null);
-
+  // Normalize cover + gallery to full public URLs
+  const coverUrl = toPublicUrl(listing.cover_url);
   const gallery = Array.isArray(listing.image_urls)
-    ? listing.image_urls.filter(Boolean)
+    ? listing.image_urls.map(toPublicUrl).filter(Boolean)
     : [];
 
-  const amenities =
-    Array.isArray(listing.amenities)
-      ? listing.amenities
-      : (listing.amenities?.items ?? []); // tolerate json structure variants
+  const amenities = Array.isArray(listing.amenities)
+    ? listing.amenities
+    : (listing.amenities?.items ?? []);
 
   const host = listing.profiles || null;
+
+  const address = fullAddress(listing);
+  const mapUrl = mapSrc({ lat: listing.lat, lng: listing.lng, q: address });
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-10">
       {/* Title + price */}
       <header className="flex items-end justify-between gap-4">
-        <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">
-          {title}
-        </h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">{title}</h1>
         <div className="text-right">
           <p className="text-xs text-gray-500">From</p>
           <p className="text-2xl font-extrabold">
-            {moneyUSD(price)}
+            {money(pricePerHour)}{" "}
             <span className="ml-1 text-sm font-normal text-gray-500">/ hour</span>
           </p>
         </div>
       </header>
 
-      {/* Cover */}
+      {/* Cover (using <img> to avoid Next/Image domain config for now) */}
       <section className="mt-6">
         <div className="relative aspect-[16/9] w-full overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
           {coverUrl ? (
-            <Image
-              src={coverUrl}
-              alt={title}
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, 66vw"
-              priority
-            />
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={coverUrl} alt={title} className="h-full w-full object-cover" />
           ) : (
-            <div className="flex h-full items-center justify-center text-gray-400">
-              No photo
-            </div>
+            <div className="flex h-full items-center justify-center text-gray-400">No photo</div>
           )}
         </div>
       </section>
@@ -144,11 +170,9 @@ export default async function ListingPage({ params }) {
               <h2 className="text-lg font-semibold">Gallery</h2>
               <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {gallery.map((src, i) => (
-                  <div
-                    key={`${src}-${i}`}
-                    className="relative aspect-[4/3] overflow-hidden rounded-md border"
-                  >
-                    <Image src={src} alt={`Photo ${i + 1}`} fill className="object-cover" />
+                  <div key={i} className="relative aspect-[4/3] overflow-hidden rounded-md border">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt={`Photo ${i + 1}`} className="h-full w-full object-cover" />
                   </div>
                 ))}
               </div>
@@ -164,7 +188,7 @@ export default async function ListingPage({ params }) {
           </section>
 
           {/* Amenities */}
-          {amenities.length > 0 && (
+          {amenities && amenities.length > 0 && (
             <section className="mt-6">
               <h2 className="text-lg font-semibold">Amenities</h2>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -172,6 +196,25 @@ export default async function ListingPage({ params }) {
                   <AmenityPill key={`${String(a)}-${i}`} name={String(a)} />
                 ))}
               </div>
+            </section>
+          )}
+
+          {/* Location */}
+          {(mapUrl || address) && (
+            <section>
+              <h2 className="text-lg font-semibold">Location</h2>
+              {address && <p className="mt-1 text-sm text-gray-600">{address}</p>}
+              {mapUrl && (
+                <div className="mt-3 overflow-hidden rounded-lg border">
+                  <iframe
+                    src={mapUrl}
+                    className="h-72 w-full"
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    title="Map"
+                  />
+                </div>
+              )}
             </section>
           )}
 
@@ -187,7 +230,7 @@ export default async function ListingPage({ params }) {
               </Link>
             </div>
             <p className="mt-2 text-sm text-gray-500">
-              Reviews coming soon. (Wire your reviews table and ratings aggregate.)
+              Reviews coming soon. (We’ll wire your reviews table and ratings aggregate.)
             </p>
           </section>
         </div>
@@ -200,9 +243,7 @@ export default async function ListingPage({ params }) {
             <div className="mt-4">
               <BookingForm
                 listingId={listing.id}
-                // BookingForm previously took cents; your DB uses dollars.
-                // If your component expects cents, multiply by 100 here.
-                priceCents={Math.round((listing.price_per_hour || 0) * 100)}
+                priceCents={Math.round(Number(pricePerHour || 0) * 100)}
                 ownerId={ownerId}
                 onSuccessRedirect="/dashboard/bookings"
               />
@@ -215,14 +256,9 @@ export default async function ListingPage({ params }) {
               <h3 className="text-base font-semibold">Host</h3>
               <div className="mt-3 flex items-center gap-3">
                 <div className="relative h-12 w-12 overflow-hidden rounded-full bg-cyan-500">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   {host.avatar_url ? (
-                    <Image
-                      src={host.avatar_url}
-                      alt="Host avatar"
-                      fill
-                      sizes="48px"
-                      className="object-cover"
-                    />
+                    <img src={host.avatar_url} alt="Host avatar" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-white font-bold">
                       {((host.first_name?.[0] || host.last_name?.[0] || "U") + "").toUpperCase()}
@@ -247,35 +283,35 @@ export default async function ListingPage({ params }) {
         </aside>
       </div>
 
-      {/* Related listings */}
+      {/* Related */}
       {related?.length > 0 && (
         <section className="mt-12">
-          <h2 className="text-lg font-semibold">More spaces</h2>
+          <h2 className="text-lg font-semibold">More in this area</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {related.map((r) => (
-              <Link
-                key={r.id}
-                href={`/listing/${r.id}`}
-                className="group overflow-hidden rounded-lg border border-gray-200 bg-white hover:shadow"
-              >
-                <div className="relative aspect-[4/3] w-full bg-gray-50">
-                  {r.image_url ? (
-                    <Image
-                      src={r.image_url}
-                      alt={r.title || "Listing"}
-                      fill
-                      className="object-cover transition-transform group-hover:scale-[1.02]"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-gray-400">No photo</div>
-                  )}
-                </div>
-                <div className="p-3">
-                  <p className="line-clamp-1 text-sm font-semibold">{r.title || "Listing"}</p>
-                  <p className="mt-2 text-sm font-bold">{moneyUSD(r.price_per_hour)}</p>
-                </div>
-              </Link>
-            ))}
+            {related.map((r) => {
+              const rCover = toPublicUrl(r.cover_url);
+              return (
+                <Link
+                  key={r.id}
+                  href={`/listing/${r.id}`}
+                  className="group overflow-hidden rounded-lg border border-gray-200 bg-white hover:shadow"
+                >
+                  <div className="relative aspect-[4/3] w-full bg-gray-50">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {rCover ? (
+                      <img src={rCover} alt={r.title || "Listing"} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-gray-400">No photo</div>
+                    )}
+                  </div>
+                  <div className="p-3">
+                    <p className="line-clamp-1 text-sm font-semibold">{r.title || "Listing"}</p>
+                    <p className="mt-1 text-xs text-gray-500">{r.city || ""}</p>
+                    <p className="mt-2 text-sm font-bold">{money(r.price_per_hour)}</p>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </section>
       )}
