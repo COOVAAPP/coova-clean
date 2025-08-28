@@ -1,193 +1,106 @@
-// components/SafeHero.jsx
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
 import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 
 export default function SafeHero({
   images = [],
-  intervalMs = 6000,
-  height = "h-[75vh]",
-  swipeThreshold = 50, // px required to trigger a swipe
+  intervalMs = 5000,
+  // editable copy
+  headline = "Find unique spaces.",
+  subline = "Host unforgettable moments.",
+  kicker  = "COOVA connects creators and hosts — from studios and rooftops to kitchens, cars, and more."
 }) {
-  const [index, setIndex] = useState(0);
+  const [i, setI] = useState(0);
+  const timer = useRef(null);
 
-  const countRef = useRef(images.length);
-  const timerRef = useRef(null);
-
-  // touch tracking
-  const touchStartX = useRef(0);
-  const touchStartY = useRef(0);
-  const touchDx = useRef(0);
-  const isSwiping = useRef(false);
-
-  // keep ref in sync if images array changes
+  // auto-rotate
   useEffect(() => {
-    countRef.current = images.length;
-    if (index >= images.length) setIndex(0);
-  }, [images.length, index]);
-
-  const goTo = useCallback((i) => {
-    const count = countRef.current;
-    if (!count) return;
-    setIndex(((i % count) + count) % count);
-  }, []);
-
-  const next = useCallback(() => goTo(index + 1), [goTo, index]);
-  const prev = useCallback(() => goTo(index - 1), [goTo, index]);
-
-  // -- Auto-rotate helpers ---------------------------------------------------
-  const stopTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  }, []);
-
-  const startTimer = useCallback(() => {
-    stopTimer();
-    if (countRef.current <= 1) return;
-    timerRef.current = setInterval(() => {
-      // use functional form to avoid stale index
-      setIndex((i) => ((i + 1) % countRef.current));
+    stop();
+    timer.current = setInterval(() => {
+      setI((n) => (n + 1) % images.length);
     }, intervalMs);
-  }, [intervalMs, stopTimer]);
+    return stop;
+  }, [images.length, intervalMs]);
 
-  useEffect(() => {
-    startTimer();
-    return () => stopTimer();
-  }, [startTimer, stopTimer]);
+  function stop() {
+    if (timer.current) clearInterval(timer.current);
+    timer.current = null;
+  }
+  function go(n) {
+    setI((n + images.length) % images.length);
+  }
 
-  // -- Keyboard navigation ---------------------------------------------------
+  // keyboard ← →
   useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "ArrowRight") {
-        stopTimer();
-        next();
-        startTimer();
-      }
-      if (e.key === "ArrowLeft") {
-        stopTimer();
-        prev();
-        startTimer();
-      }
-    };
+    function onKey(e) {
+      if (e.key === "ArrowLeft") go(i - 1);
+      if (e.key === "ArrowRight") go(i + 1);
+    }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [next, prev, stopTimer, startTimer]);
-
-  // -- Touch swipe (mobile) --------------------------------------------------
-  const onTouchStart = (e) => {
-    if (!e.touches || e.touches.length !== 1) return;
-    const t = e.touches[0];
-    touchStartX.current = t.clientX;
-    touchStartY.current = t.clientY;
-    touchDx.current = 0;
-    isSwiping.current = true;
-    stopTimer();
-  };
-
-  const onTouchMove = (e) => {
-    if (!isSwiping.current || !e.touches || e.touches.length !== 1) return;
-    const t = e.touches[0];
-    const dx = t.clientX - touchStartX.current;
-    const dy = t.clientY - touchStartY.current;
-
-    // Only consider mostly-horizontal gestures
-    if (Math.abs(dx) > Math.abs(dy)) {
-      e.preventDefault(); // reduce scroll interference while swiping horizontally
-      touchDx.current = dx;
-    }
-  };
-
-  const onTouchEnd = () => {
-    if (!isSwiping.current) return;
-    const dx = touchDx.current;
-    isSwiping.current = false;
-    touchDx.current = 0;
-
-    if (Math.abs(dx) >= swipeThreshold) {
-      if (dx < 0) next(); // swipe left → next
-      else prev();        // swipe right → prev
-    }
-
-    startTimer();
-  };
-
-  if (!images.length) return null;
+  }, [i]);
 
   return (
-    <section
-      className={`relative w-full overflow-hidden ${height}`}
-      aria-roledescription="carousel"
-      aria-label="Featured spaces"
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
-    >
-      {/* Slides (fade) */}
-      {images.map((src, i) => (
+    <section className="relative isolate h-[60vh] min-h-[420px] w-full overflow-hidden rounded-none">
+      {/* slides */}
+      {images.map((src, idx) => (
         <div
-          key={i}
+          key={src}
           className={`absolute inset-0 transition-opacity duration-700 ${
-            i === index ? "opacity-100 z-10" : "opacity-0 z-0"
+            idx === i ? "opacity-100" : "opacity-0"
           }`}
-          aria-hidden={i === index ? "false" : "true"}
+          aria-hidden={idx !== i}
         >
           <Image
             src={src}
-            alt={`Hero ${i + 1}`}
+            alt=""
             fill
-            priority={i === 0}
+            priority={idx === i}
+            sizes="100vw"
             className="object-cover"
           />
         </div>
       ))}
 
-      {/* Overlay for contrast */}
-      <div className="pointer-events-none absolute inset-0 bg-black/40" aria-hidden="true" />
+      {/* gradient for legibility */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/25 to-transparent" />
 
-      {/* Headline / subtext (optional; remove if you already render text elsewhere) */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="pointer-events-auto text-center px-4">
-          <h1 className="text-white text-3xl sm:text-5xl font-extrabold tracking-tight">
-            Find unique spaces.
-            <br className="hidden sm:block" />
-            Host unforgettable moments.
-          </h1>
-          <p className="mt-3 sm:mt-4 text-white/90 text-sm sm:text-base max-w-2xl mx-auto">
-            COOVA connects creators and hosts—from studios and rooftops to kitchens, cars, and more.
-          </p>
-        </div>
+      {/* text content */}
+      <div className="relative z-10 mx-auto flex h-full max-w-6xl flex-col items-center justify-center px-4 text-center">
+        <p className="text-white/80 text-xs sm:text-sm font-semibold tracking-wide">COOVA</p>
+        <h1 className="mt-2 text-3xl sm:text-4xl md:text-5xl font-extrabold text-white drop-shadow">
+          {headline}
+          <br className="hidden sm:block" />
+          <span className="block">{subline}</span>
+        </h1>
+        <p className="mt-3 max-w-2xl text-white/80 text-sm sm:text-base">
+          {kicker}
+        </p>
       </div>
 
-      {/* Dots (clickable + focus rings) */}
-      <div
-        className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2"
-        role="tablist"
-        aria-label="Slide chooser"
-      >
-        {images.map((_, i) => {
-          const active = i === index;
-          return (
+      {/* dots */}
+      <div className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2">
+        <div className="flex items-center gap-2">
+          {images.map((_, idx) => (
             <button
-              key={i}
-              role="tab"
-              aria-selected={active}
-              aria-label={`Slide ${i + 1}`}
-              tabIndex={0}
-              onClick={() => {
-                stopTimer();
-                setIndex(i);
-                startTimer();
+              key={idx}
+              onClick={() => go(idx)}
+              onMouseEnter={stop}
+              onMouseLeave={() => {
+                if (!timer.current) {
+                  timer.current = setInterval(() => {
+                    setI((n) => (n + 1) % images.length);
+                  }, intervalMs);
+                }
               }}
-              className={`h-3 w-3 rounded-full transition transform outline-none
-                ${active ? "bg-white scale-110" : "bg-white/60 hover:bg-white/80"}
-                focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black
-              `}
+              aria-label={`Go to slide ${idx + 1}`}
+              className={`h-2.5 w-2.5 rounded-full transition ${
+                idx === i ? "bg-white shadow" : "bg-white/50 hover:bg-white/80"
+              }`}
             />
-          );
-        })}
+          ))}
+        </div>
       </div>
     </section>
   );
