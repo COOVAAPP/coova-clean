@@ -25,4 +25,46 @@ export default function ListingCard({ listing }) {
       </div>
     </Link>
   );
+}// components/ListingCard.jsx
+"use client";
+
+import Link from "next/link";
+
+function money(n) {
+  const v = Number(n || 0);
+  return `$${v.toLocaleString()}`;
+}
+
+export default function ListingCard({ listing }) {
+  const cover = listing.cover_url || listing.images?.[0] || "";
+  return (
+    <Link
+      href={`/listing/${listing.id}`}
+      className="group overflow-hidden rounded-lg border border-gray-200 bg-white hover:shadow transition"
+    >
+      <div className="relative aspect-[4/3] w-full bg-gray-100">
+        {cover ? (
+          // Use plain <img> to avoid Next image domain config issues
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={cover}
+            alt={listing.title || "Listing"}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-gray-400">No photo</div>
+        )}
+      </div>
+      <div className="p-3">
+        <p className="line-clamp-1 text-sm font-semibold">{listing.title || "Untitled"}</p>
+        <p className="mt-1 text-xs text-gray-500">
+          {listing.city || ""}{listing.category ? ` • ${listing.category}` : ""}
+        </p>
+        <p className="mt-2 text-sm font-bold">
+          {money(listing.price_per_hour)} <span className="text-gray-500 font-normal">/ hour</span>
+        </p>
+      </div>
+    </Link>
+  );
 }
