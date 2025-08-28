@@ -94,7 +94,7 @@ export default function BookingsPage() {
           id,
           title,
           owner_id,
-          cover_url
+          image_url,
         ),
         guest:guest_id (
           id,
@@ -142,7 +142,7 @@ export default function BookingsPage() {
           id,
           title,
           owner_id,
-          cover_url
+          image_url,
         )
       `,
         { count: "exact" }

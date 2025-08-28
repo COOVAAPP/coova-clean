@@ -64,6 +64,11 @@ export default function ListingCard({ listing }) {
             <span className="ml-1 text-xs text-gray-500">/ hour</span>
           </p>
         ) : null}
+        {typeof listing?.distance_km === "number" && Number.isFinite(listing.distance_km) ? (
+          <p className="mt-1 text-xs text-gray-500">
+            {(listing.distance_km * 0.621371).toFixed(1)} mi away
+          </p>
+        ) : null}
       </div>
     </Link>
   );
