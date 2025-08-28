@@ -1,14 +1,25 @@
 // app/browse/BrowseClient.jsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import ListingCard from "@/components/ListingCard";
 
 const CATEGORIES = ["All", "Studio", "Event Space", "Outdoor", "Kitchen", "Office", "Gallery", "Other"];
-const AMENITY_SUGGESTIONS = ["Wifi", "Parking", "A/C", "Heat", "Power", "Restroom", "Lighting", "Sound System", "Kitchen", "Changing Room"];
+const AMENITY_SUGGESTIONS = [
+  "Wifi",
+  "Parking",
+  "A/C",
+  "Heat",
+  "Power",
+  "Restroom",
+  "Lighting",
+  "Sound System",
+  "Kitchen",
+  "Changing Room",
+];
 
+/* ------------------------ URL state helper ------------------------ */
 function useQueryState() {
   const router = useRouter();
   const sp = useSearchParams();
@@ -21,7 +32,10 @@ function useQueryState() {
       const n = Number(v);
       return Number.isFinite(n) ? String(n) : "";
     };
-    const amenities = (sp.get("amenities") || "").split(",").map((x) => x.trim()).filter(Boolean);
+    const amenities = (sp.get("amenities") || "")
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
 
     return {
       q: get("q"),
@@ -30,6 +44,7 @@ function useQueryState() {
       minPrice: getNum("minPrice"),
       maxPrice: getNum("maxPrice"),
       minCap: getNum("minCap"),
+      maxCap: getNum("maxCap"),
       sort: get("sort", "newest"),
       amenities,
       page: Number(sp.get("page") || "1"),
@@ -46,22 +61,25 @@ function useQueryState() {
       }
     });
     if (resetPage) params.delete("page");
-    router.replace(`/browse?${params.toString()}`);
+    const qs = params.toString();
+    router.replace(qs ? `/browse?${qs}` : "/browse");
   };
 
   return [state, set];
 }
 
+/* ----------------------------- Page ------------------------------ */
 export default function BrowseClient() {
   const [qs, setQs] = useQueryState();
 
-  // local UI state (mirrors qs)
+  // local UI state (mirror of qs)
   const [q, setQ] = useState(qs.q);
   const [category, setCategory] = useState(qs.category);
   const [city, setCity] = useState(qs.city);
   const [minPrice, setMinPrice] = useState(qs.minPrice);
   const [maxPrice, setMaxPrice] = useState(qs.maxPrice);
   const [minCap, setMinCap] = useState(qs.minCap);
+  const [maxCap, setMaxCap] = useState(qs.maxCap);
   const [sort, setSort] = useState(qs.sort);
   const [amenities, setAmenities] = useState(qs.amenities);
 
@@ -71,7 +89,7 @@ export default function BrowseClient() {
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // sync when URL changes (back/forward, external nav)
+  // sync locals when URL changes (back/forward, external nav)
   useEffect(() => {
     setQ(qs.q);
     setCategory(qs.category);
@@ -79,12 +97,20 @@ export default function BrowseClient() {
     setMinPrice(qs.minPrice);
     setMaxPrice(qs.maxPrice);
     setMinCap(qs.minCap);
+    setMaxCap(qs.maxCap);
     setSort(qs.sort);
     setAmenities(qs.amenities);
     setPage(qs.page || 1);
   }, [qs]);
 
-  // fetch
+  // (tiny) debounce so Apply right after typing doesn't double fetch
+  const debounceRef = useRef(null);
+  function withDebounce(cb, delay = 150) {
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(cb, delay);
+  }
+
+  // fetch a page
   async function fetchPage(p = 1, append = false) {
     setLoading(true);
     try {
@@ -95,6 +121,7 @@ export default function BrowseClient() {
       if (minPrice) params.set("minPrice", minPrice);
       if (maxPrice) params.set("maxPrice", maxPrice);
       if (minCap) params.set("minCap", minCap);
+      if (maxCap) params.set("maxCap", maxCap);
       if (sort) params.set("sort", sort);
       if (amenities?.length) params.set("amenities", amenities.join(","));
       params.set("page", String(p));
@@ -108,7 +135,7 @@ export default function BrowseClient() {
       setPage(json.page);
       setItems((prev) => (append ? [...prev, ...json.items] : json.items));
     } catch (e) {
-      console.error(e);
+      console.error("[Browse] fetch error:", e);
     } finally {
       setLoading(false);
     }
@@ -116,9 +143,9 @@ export default function BrowseClient() {
 
   // refetch when URL-backed params change
   useEffect(() => {
-    fetchPage(1, false);
+    withDebounce(() => fetchPage(1, false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qs.q, qs.category, qs.city, qs.minPrice, qs.maxPrice, qs.minCap, qs.sort, qs.amenities]);
+  }, [qs.q, qs.category, qs.city, qs.minPrice, qs.maxPrice, qs.minCap, qs.maxCap, qs.sort, qs.amenities]);
 
   // actions
   const submitFilters = (e) => {
@@ -131,11 +158,25 @@ export default function BrowseClient() {
         minPrice,
         maxPrice,
         minCap,
+        maxCap,
         sort,
         amenities,
       },
       true // reset page to 1
     );
+  };
+
+  const resetFilters = () => {
+    setQ("");
+    setCategory("All");
+    setCity("");
+    setMinPrice("");
+    setMaxPrice("");
+    setMinCap("");
+    setMaxCap("");
+    setSort("newest");
+    setAmenities([]);
+    setQs({}, true); // clears URL (router.replace('/browse'))
   };
 
   const toggleAmenity = (name) => {
@@ -155,6 +196,7 @@ export default function BrowseClient() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submitFilters(e)}
               placeholder="Title or description"
               className="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
             />
@@ -169,7 +211,9 @@ export default function BrowseClient() {
               className="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
             >
               {CATEGORIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
+                <option key={c} value={c}>
+                  {c}
+                </option>
               ))}
             </select>
           </div>
@@ -180,12 +224,13 @@ export default function BrowseClient() {
             <input
               value={city}
               onChange={(e) => setCity(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submitFilters(e)}
               placeholder="e.g., Atlanta"
               className="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
             />
           </div>
 
-          {/* Capacity */}
+          {/* Capacity min/max */}
           <div className="md:col-span-1">
             <label className="block text-xs font-semibold text-gray-600">Min capacity</label>
             <input
@@ -196,9 +241,19 @@ export default function BrowseClient() {
               className="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
             />
           </div>
+          <div className="md:col-span-1">
+            <label className="block text-xs font-semibold text-gray-600">Max capacity</label>
+            <input
+              type="number"
+              min={1}
+              value={maxCap}
+              onChange={(e) => setMaxCap(e.target.value)}
+              className="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
+            />
+          </div>
 
           {/* Price range */}
-          <div className="md:col-span-2">
+          <div className="md:col-span-1">
             <label className="block text-xs font-semibold text-gray-600">Price min</label>
             <div className="relative">
               <span className="pointer-events-none absolute left-2 top-[9px] text-gray-400">$</span>
@@ -211,8 +266,7 @@ export default function BrowseClient() {
               />
             </div>
           </div>
-
-          <div className="md:col-span-2">
+          <div className="md:col-span-1">
             <label className="block text-xs font-semibold text-gray-600">Price max</label>
             <div className="relative">
               <span className="pointer-events-none absolute left-2 top-[9px] text-gray-400">$</span>
@@ -243,7 +297,7 @@ export default function BrowseClient() {
 
         {/* Amenities */}
         <div className="mt-4">
-          <p className="text-xs font-semibold text-gray-600 mb-2">Amenities</p>
+          <p className="mb-2 text-xs font-semibold text-gray-600">Amenities</p>
           <div className="flex flex-wrap gap-2">
             {AMENITY_SUGGESTIONS.map((a) => {
               const active = amenities.includes(a);
@@ -258,7 +312,8 @@ export default function BrowseClient() {
                       : "border-gray-200 bg-white text-gray-600 hover:border-cyan-300"
                   }`}
                 >
-                  {active ? "✓ " : "+ "}{a}
+                  {active ? "✓ " : "+ "}
+                  {a}
                 </button>
               );
             })}
@@ -269,17 +324,7 @@ export default function BrowseClient() {
         <div className="mt-4 flex items-center justify-end gap-2">
           <button
             type="button"
-            onClick={() => {
-              setQ("");
-              setCategory("All");
-              setCity("");
-              setMinPrice("");
-              setMaxPrice("");
-              setMinCap("");
-              setSort("newest");
-              setAmenities([]);
-              setQs({}, true); // clear URL
-            }}
+            onClick={resetFilters}
             className="rounded-md border px-4 py-1.5 text-sm font-semibold hover:bg-gray-50"
           >
             Reset
@@ -307,7 +352,6 @@ export default function BrowseClient() {
               ))}
             </div>
 
-            {/* Load more */}
             {hasMore && (
               <div className="mt-6 text-center">
                 <button
