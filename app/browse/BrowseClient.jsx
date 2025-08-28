@@ -3,19 +3,50 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import ListingCard from "@/components/ListingCard";
 
-const CATEGORIES = ["All", "Studio", "Event Space", "Outdoor", "Kitchen", "Office", "Gallery", "Other"];
-const AMENITY_SUGGESTIONS = ["Wifi", "Parking", "A/C", "Heat", "Power", "Restroom", "Lighting", "Sound System", "Kitchen", "Changing Room"];
+const CATEGORIES = [
+  "All",
+  "Studio",
+  "Event Space",
+  "Outdoor",
+  "Kitchen",
+  "Office",
+  "Gallery",
+  "Other",
+];
 
+const AMENITY_SUGGESTIONS = [
+  "Wifi",
+  "Parking",
+  "A/C",
+  "Heat",
+  "Power",
+  "Restroom",
+  "Lighting",
+  "Sound System",
+  "Kitchen",
+  "Changing Room",
+];
+
+const SORT_OPTIONS = [
+  { value: "newest", label: "Newest" },
+  { value: "price_asc", label: "Price ↑" },
+  { value: "price_desc", label: "Price ↓" },
+  { value: "distance_asc", label: "Closest" },
+  { value: "distance_desc", label: "Farthest" },
+];
+
+/* --------------------------
+   URL <-> state helper
+--------------------------- */
 function useQueryState() {
   const router = useRouter();
   const sp = useSearchParams();
 
   const state = useMemo(() => {
     const get = (k, d = "") => sp.get(k) ?? d;
-    const getNumStr = (k) => {
+    const getNum = (k) => {
       const v = sp.get(k);
       if (v === null) return "";
       const n = Number(v);
@@ -30,14 +61,12 @@ function useQueryState() {
       q: get("q"),
       category: get("category", "All"),
       city: get("city"),
-      minPrice: getNumStr("minPrice"),
-      maxPrice: getNumStr("maxPrice"),
-      minCap: getNumStr("minCap"),
-      sort: get("sort", "newest"), // newest | price_asc | price_desc | distance_asc | distance_desc
+      minPrice: getNum("minPrice"),
+      maxPrice: getNum("maxPrice"),
+      minCap: getNum("minCap"),
+      sort: get("sort", "newest"),
       amenities,
       page: Number(sp.get("page") || "1"),
-      lat: getNumStr("lat"),
-      lng: getNumStr("lng"),
     };
   }, [sp]);
 
@@ -62,6 +91,9 @@ function useQueryState() {
   return [state, set];
 }
 
+/* --------------------------
+   Component
+--------------------------- */
 export default function BrowseClient() {
   const [qs, setQs] = useQueryState();
 
@@ -74,8 +106,10 @@ export default function BrowseClient() {
   const [minCap, setMinCap] = useState(qs.minCap);
   const [sort, setSort] = useState(qs.sort);
   const [amenities, setAmenities] = useState(qs.amenities);
-  const [lat, setLat] = useState(qs.lat);
-  const [lng, setLng] = useState(qs.lng);
+
+  // geolocation (kept client-only; not mirrored to URL)
+  const [lat, setLat] = useState(null);
+  const [lng, setLng] = useState(null);
 
   // results
   const [items, setItems] = useState([]);
@@ -83,7 +117,7 @@ export default function BrowseClient() {
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // sync local -> URL mirrors when qs changes
+  // sync local state when URL-backed params change
   useEffect(() => {
     setQ(qs.q);
     setCategory(qs.category);
@@ -94,11 +128,10 @@ export default function BrowseClient() {
     setSort(qs.sort);
     setAmenities(qs.amenities);
     setPage(qs.page || 1);
-    setLat(qs.lat);
-    setLng(qs.lng);
+    // NOTE: we intentionally do not touch lat/lng here
   }, [qs]);
 
-  // fetch
+  // fetch a page
   async function fetchPage(p = 1, append = false) {
     setLoading(true);
     try {
@@ -111,14 +144,16 @@ export default function BrowseClient() {
       if (minCap) params.set("minCap", minCap);
       if (sort) params.set("sort", sort);
       if (amenities?.length) params.set("amenities", amenities.join(","));
-      if (lat && lng) {
-        params.set("lat", lat);
-        params.set("lng", lng);
+      if (lat != null && lng != null) {
+        params.set("lat", String(lat));
+        params.set("lng", String(lng));
       }
       params.set("page", String(p));
       params.set("limit", "12");
 
-      const res = await fetch(`/api/browse?${params.toString()}`, { cache: "no-store" });
+      const res = await fetch(`/api/browse?${params.toString()}`, {
+        cache: "no-store",
+      });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "Failed to fetch");
 
@@ -126,7 +161,7 @@ export default function BrowseClient() {
       setPage(json.page);
       setItems((prev) => (append ? [...prev, ...json.items] : json.items));
     } catch (e) {
-      console.error("[Browse] fetch error", e);
+      console.error(e);
     } finally {
       setLoading(false);
     }
@@ -145,8 +180,6 @@ export default function BrowseClient() {
     qs.minCap,
     qs.sort,
     qs.amenities,
-    qs.lat,
-    qs.lng,
   ]);
 
   // actions
@@ -162,10 +195,8 @@ export default function BrowseClient() {
         minCap,
         sort,
         amenities,
-        lat,
-        lng,
       },
-      true
+      true // reset page to 1
     );
   };
 
@@ -176,18 +207,17 @@ export default function BrowseClient() {
   };
 
   const useMyLocation = () => {
-    if (!navigator.geolocation) {
-      alert("Geolocation not supported in this browser.");
+    if (!navigator?.geolocation) {
+      alert("Geolocation not available in this browser.");
       return;
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const la = pos.coords.latitude?.toFixed(6);
-        const lo = pos.coords.longitude?.toFixed(6);
-        setLat(String(la));
-        setLng(String(lo));
-        // immediately push to URL & refetch
-        setQs({ lat: la, lng: lo }, true);
+        setLat(pos.coords.latitude);
+        setLng(pos.coords.longitude);
+        setSort("distance_asc");
+        // update URL sort so effect triggers fetch
+        setQs({ sort: "distance_asc" });
       },
       (err) => {
         console.error(err);
@@ -197,15 +227,11 @@ export default function BrowseClient() {
     );
   };
 
-  const clearLocation = () => {
-    setLat("");
-    setLng("");
-    setQs({ lat: "", lng: "" }, true);
-  };
-
   return (
     <div className="container-page">
-      <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">Browse spaces</h1>
+      <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">
+        Browse spaces
+      </h1>
 
       {/* Filters */}
       <form
@@ -215,7 +241,9 @@ export default function BrowseClient() {
         <div className="grid gap-3 md:grid-cols-12">
           {/* Query */}
           <div className="md:col-span-3">
-            <label className="block text-xs font-semibold text-gray-600">Search</label>
+            <label className="block text-xs font-semibold text-gray-600">
+              Search
+            </label>
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
@@ -226,21 +254,27 @@ export default function BrowseClient() {
 
           {/* Category */}
           <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-gray-600">Category</label>
+            <label className="block text-xs font-semibold text-gray-600">
+              Category
+            </label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
             >
               {CATEGORIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
+                <option key={c} value={c}>
+                  {c}
+                </option>
               ))}
             </select>
           </div>
 
           {/* City */}
           <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-gray-600">City</label>
+            <label className="block text-xs font-semibold text-gray-600">
+              City
+            </label>
             <input
               value={city}
               onChange={(e) => setCity(e.target.value)}
@@ -251,7 +285,9 @@ export default function BrowseClient() {
 
           {/* Capacity */}
           <div className="md:col-span-1">
-            <label className="block text-xs font-semibold text-gray-600">Min capacity</label>
+            <label className="block text-xs font-semibold text-gray-600">
+              Min capacity
+            </label>
             <input
               type="number"
               min={1}
@@ -263,9 +299,13 @@ export default function BrowseClient() {
 
           {/* Price range */}
           <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-gray-600">Price min</label>
+            <label className="block text-xs font-semibold text-gray-600">
+              Price min
+            </label>
             <div className="relative">
-              <span className="pointer-events-none absolute left-2 top-[9px] text-gray-400">$</span>
+              <span className="pointer-events-none absolute left-2 top-[9px] text-gray-400">
+                $
+              </span>
               <input
                 type="number"
                 min={0}
@@ -277,9 +317,13 @@ export default function BrowseClient() {
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-gray-600">Price max</label>
+            <label className="block text-xs font-semibold text-gray-600">
+              Price max
+            </label>
             <div className="relative">
-              <span className="pointer-events-none absolute left-2 top-[9px] text-gray-400">$</span>
+              <span className="pointer-events-none absolute left-2 top-[9px] text-gray-400">
+                $
+              </span>
               <input
                 type="number"
                 min={0}
@@ -292,39 +336,33 @@ export default function BrowseClient() {
 
           {/* Sort */}
           <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-gray-600">Sort</label>
+            <label className="block text-xs font-semibold text-gray-600">
+              Sort
+            </label>
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value)}
               className="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
             >
-              <option value="newest">Newest</option>
-              <option value="price_asc">Price ↑</option>
-              <option value="price_desc">Price ↓</option>
-              <option value="distance_asc">Closest</option>
-              <option value="distance_desc">Farthest</option>
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
             </select>
-            <div className="mt-2 flex items-center gap-2">
-              <button type="button" onClick={useMyLocation} className="rounded border px-2 py-1 text-xs hover:bg-gray-50">
-                Use my location
-              </button>
-              {lat && lng ? (
-                <button type="button" onClick={clearLocation} className="text-xs text-cyan-700 hover:underline">
-                  Clear
-                </button>
-              ) : null}
-            </div>
-            {lat && lng ? (
+            {(sort === "distance_asc" || sort === "distance_desc") && (
               <p className="mt-1 text-[11px] text-gray-500">
-                Using coords: {lat}, {lng}
+                {lat && lng
+                  ? "Sorting by distance using your current location."
+                  : "Click “Use my location” below to sort by distance."}
               </p>
-            ) : null}
+            )}
           </div>
         </div>
 
         {/* Amenities */}
         <div className="mt-4">
-          <p className="text-xs font-semibold text-gray-600 mb-2">Amenities</p>
+          <p className="mb-2 text-xs font-semibold text-gray-600">Amenities</p>
           <div className="flex flex-wrap gap-2">
             {AMENITY_SUGGESTIONS.map((a) => {
               const active = amenities.includes(a);
@@ -339,7 +377,8 @@ export default function BrowseClient() {
                       : "border-gray-200 bg-white text-gray-600 hover:border-cyan-300"
                   }`}
                 >
-                  {active ? "✓ " : "+ "}{a}
+                  {active ? "✓ " : "+ "}
+                  {a}
                 </button>
               );
             })}
@@ -347,32 +386,42 @@ export default function BrowseClient() {
         </div>
 
         {/* Actions */}
-        <div className="mt-4 flex items-center justify-end gap-2">
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
           <button
             type="button"
-            onClick={() => {
-              setQ("");
-              setCategory("All");
-              setCity("");
-              setMinPrice("");
-              setMaxPrice("");
-              setMinCap("");
-              setSort("newest");
-              setAmenities([]);
-              setLat("");
-              setLng("");
-              setQs({}, true); // clear URL
-            }}
+            onClick={useMyLocation}
             className="rounded-md border px-4 py-1.5 text-sm font-semibold hover:bg-gray-50"
           >
-            Reset
+            Use my location
           </button>
-          <button
-            type="submit"
-            className="rounded-md bg-cyan-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-cyan-700"
-          >
-            Apply filters
-          </button>
+
+          <div className="flex items-center gap-2 sm:ml-auto">
+            <button
+              type="button"
+              onClick={() => {
+                setQ("");
+                setCategory("All");
+                setCity("");
+                setMinPrice("");
+                setMaxPrice("");
+                setMinCap("");
+                setSort("newest");
+                setAmenities([]);
+                setLat(null);
+                setLng(null);
+                setQs({}, true); // clear URL
+              }}
+              className="rounded-md border px-4 py-1.5 text-sm font-semibold hover:bg-gray-50"
+            >
+              Reset
+            </button>
+            <button
+              type="submit"
+              className="rounded-md bg-cyan-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-cyan-700"
+            >
+              Apply filters
+            </button>
+          </div>
         </div>
       </form>
 
@@ -390,6 +439,7 @@ export default function BrowseClient() {
               ))}
             </div>
 
+            {/* Load more */}
             {hasMore && (
               <div className="mt-6 text-center">
                 <button
