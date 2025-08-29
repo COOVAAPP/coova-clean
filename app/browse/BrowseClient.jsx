@@ -3,19 +3,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import ListingCard from "@/components/ListingCard";
 
-const CATEGORIES = [
-  "All",
-  "Studio",
-  "Event Space",
-  "Outdoor",
-  "Kitchen",
-  "Office",
-  "Gallery",
-  "Other",
-];
-
+// Map must render client-side
+const ResultsMap = dynamic(() => import("@/components/ResultsMap"), { ssr: false });
+const router = useRouter();
+const sp = useSearchParams();
+const CATEGORIES = ["All", "Studio", "Event Space", "Outdoor", "Kitchen", "Office", "Gallery", "Other"];
 const AMENITY_SUGGESTIONS = [
   "Wifi",
   "Parking",
@@ -29,17 +24,9 @@ const AMENITY_SUGGESTIONS = [
   "Changing Room",
 ];
 
-const SORT_OPTIONS = [
-  { value: "newest", label: "Newest" },
-  { value: "price_asc", label: "Price ↑" },
-  { value: "price_desc", label: "Price ↓" },
-  { value: "distance_asc", label: "Closest" },
-  { value: "distance_desc", label: "Farthest" },
-];
-
-/* --------------------------
-   URL <-> state helper
---------------------------- */
+/* ------------------------------------------
+   URL <-> state helpers
+------------------------------------------- */
 function useQueryState() {
   const router = useRouter();
   const sp = useSearchParams();
@@ -66,6 +53,11 @@ function useQueryState() {
       minCap: getNum("minCap"),
       sort: get("sort", "newest"),
       amenities,
+      // distance filters
+      nearMe: get("nearMe") === "1",
+      distanceMiles: getNum("distance"),
+      lat: get("lat"),
+      lng: get("lng"),
       page: Number(sp.get("page") || "1"),
     };
   }, [sp]);
@@ -73,16 +65,14 @@ function useQueryState() {
   const set = (patch, resetPage = true) => {
     const params = new URLSearchParams(sp.toString());
     Object.entries(patch).forEach(([k, v]) => {
-      if (
+      const empty =
         v === undefined ||
         v === null ||
         v === "" ||
-        (Array.isArray(v) && v.length === 0)
-      ) {
-        params.delete(k);
-      } else {
-        params.set(k, Array.isArray(v) ? v.join(",") : String(v));
-      }
+        (Array.isArray(v) && v.length === 0) ||
+        (typeof v === "boolean" && v === false);
+      if (empty) params.delete(k);
+      else params.set(k, Array.isArray(v) ? v.join(",") : String(v));
     });
     if (resetPage) params.delete("page");
     router.replace(`/browse?${params.toString()}`);
@@ -91,9 +81,9 @@ function useQueryState() {
   return [state, set];
 }
 
-/* --------------------------
+/* ------------------------------------------
    Component
---------------------------- */
+------------------------------------------- */
 export default function BrowseClient() {
   const [qs, setQs] = useQueryState();
 
@@ -107,9 +97,23 @@ export default function BrowseClient() {
   const [sort, setSort] = useState(qs.sort);
   const [amenities, setAmenities] = useState(qs.amenities);
 
-  // geolocation (kept client-only; not mirrored to URL)
-  const [lat, setLat] = useState(null);
-  const [lng, setLng] = useState(null);
+  // distance filters
+  const [lat, setLat] = useState(qs.lat);
+  const [lng, setLng] = ussState(qs.lng);
+  const [nearMe, setNearMe] = useState(qs.nearMe);
+  const [distanceMiles, setDistanceMiles] = useState(qs.distanceMiles);
+
+  // geolocation
+  const [userLoc, setUserLoc] = useState(null); // {lat, lng} | null
+  useEffect(() => {
+    // only try when useful
+    if (!nearMe) return;
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => {} // ignore errors silently
+    );
+  }, [nearMe]);
 
   // results
   const [items, setItems] = useState([]);
@@ -117,7 +121,7 @@ export default function BrowseClient() {
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // sync local state when URL-backed params change
+  // sync when URL changes
   useEffect(() => {
     setQ(qs.q);
     setCategory(qs.category);
@@ -127,11 +131,16 @@ export default function BrowseClient() {
     setMinCap(qs.minCap);
     setSort(qs.sort);
     setAmenities(qs.amenities);
+    setNearMe(qs.nearMe);
+    setLat(qs.lat);
+    setLng(qs.lng);
+    setDistanceMiles(qs.distanceMiles);
     setPage(qs.page || 1);
-    // NOTE: we intentionally do not touch lat/lng here
   }, [qs]);
 
-  // fetch a page
+  /* ------------------------------------------
+     Fetch API
+  ------------------------------------------- */
   async function fetchPage(p = 1, append = false) {
     setLoading(true);
     try {
@@ -144,16 +153,21 @@ export default function BrowseClient() {
       if (minCap) params.set("minCap", minCap);
       if (sort) params.set("sort", sort);
       if (amenities?.length) params.set("amenities", amenities.join(","));
-      if (lat != null && lng != null) {
-        params.set("lat", String(lat));
-        params.set("lng", String(lng));
+      if (lat) params.set("lat", lat);
+      if (lng) params.set("lng", lng);
+
+      // distance params → your /api/browse handler should interpret these
+      if (nearMe && distanceMiles && userLoc?.lat && userLoc?.lng) {
+        params.set("nearMe", "1");
+        params.set("distance", distanceMiles);
+        params.set("lat", String(userLoc.lat));
+        params.set("lng", String(userLoc.lng));
       }
+
       params.set("page", String(p));
       params.set("limit", "12");
 
-      const res = await fetch(`/api/browse?${params.toString()}`, {
-        cache: "no-store",
-      });
+      const res = await fetch(`/api/browse?${params.toString()}`, { cache: "no-store" });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "Failed to fetch");
 
@@ -161,7 +175,7 @@ export default function BrowseClient() {
       setPage(json.page);
       setItems((prev) => (append ? [...prev, ...json.items] : json.items));
     } catch (e) {
-      console.error(e);
+      console.error("[Browse] fetch error", e);
     } finally {
       setLoading(false);
     }
@@ -180,9 +194,13 @@ export default function BrowseClient() {
     qs.minCap,
     qs.sort,
     qs.amenities,
+    qs.nearMe,
+    qs.distanceMiles,
   ]);
 
-  // actions
+  /* ------------------------------------------
+     Actions
+  ------------------------------------------- */
   const submitFilters = (e) => {
     e?.preventDefault?.();
     setQs(
@@ -195,55 +213,43 @@ export default function BrowseClient() {
         minCap,
         sort,
         amenities,
+        nearMe: nearMe ? "1" : "",
+        distance: distanceMiles,
       },
-      true // reset page to 1
+      true // reset page=1
     );
   };
 
   const toggleAmenity = (name) => {
-    setAmenities((a) =>
-      a.includes(name) ? a.filter((x) => x !== name) : [...a, name]
-    );
+    setAmenities((a) => (a.includes(name) ? a.filter((x) => x !== name) : [...a, name]));
   };
 
-  const useMyLocation = () => {
-    if (!navigator?.geolocation) {
-      alert("Geolocation not available in this browser.");
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLat(pos.coords.latitude);
-        setLng(pos.coords.longitude);
-        setSort("distance_asc");
-        // update URL sort so effect triggers fetch
-        setQs({ sort: "distance_asc" });
-      },
-      (err) => {
-        console.error(err);
-        alert("Could not get your location.");
-      },
-      { enableHighAccuracy: true, timeout: 8000 }
-    );
-  };
+  /* ------------------------------------------
+     Map markers from results
+  ------------------------------------------- */
+  const markers = items
+    .filter((l) => Number.isFinite(l.lat) && Number.isFinite(l.lng))
+    .map((l) => ({
+      id: l.id,
+      lat: l.lat,
+      lng: l.lng,
+      title: l.title,
+      href: `/listing/${l.id}`,
+    }));
 
+  /* ------------------------------------------
+     UI
+  ------------------------------------------- */
   return (
     <div className="container-page">
-      <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">
-        Browse spaces
-      </h1>
+      <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">Browse spaces</h1>
 
       {/* Filters */}
-      <form
-        onSubmit={submitFilters}
-        className="mt-5 rounded-md border border-gray-200 bg-white p-4 shadow-sm"
-      >
+      <form onSubmit={submitFilters} className="mt-5 rounded-md border border-gray-200 bg-white p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-12">
           {/* Query */}
           <div className="md:col-span-3">
-            <label className="block text-xs font-semibold text-gray-600">
-              Search
-            </label>
+            <label className="block text-xs font-semibold text-gray-600">Search</label>
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
@@ -254,9 +260,7 @@ export default function BrowseClient() {
 
           {/* Category */}
           <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-gray-600">
-              Category
-            </label>
+            <label className="block text-xs font-semibold text-gray-600">Category</label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
@@ -272,9 +276,7 @@ export default function BrowseClient() {
 
           {/* City */}
           <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-gray-600">
-              City
-            </label>
+            <label className="block text-xs font-semibold text-gray-600">City</label>
             <input
               value={city}
               onChange={(e) => setCity(e.target.value)}
@@ -285,9 +287,7 @@ export default function BrowseClient() {
 
           {/* Capacity */}
           <div className="md:col-span-1">
-            <label className="block text-xs font-semibold text-gray-600">
-              Min capacity
-            </label>
+            <label className="block text-xs font-semibold text-gray-600">Min capacity</label>
             <input
               type="number"
               min={1}
@@ -297,15 +297,11 @@ export default function BrowseClient() {
             />
           </div>
 
-          {/* Price range */}
+          {/* Price min */}
           <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-gray-600">
-              Price min
-            </label>
+            <label className="block text-xs font-semibold text-gray-600">Price min</label>
             <div className="relative">
-              <span className="pointer-events-none absolute left-2 top-[9px] text-gray-400">
-                $
-              </span>
+              <span className="pointer-events-none absolute left-2 top-[9px] text-gray-400">$</span>
               <input
                 type="number"
                 min={0}
@@ -316,14 +312,11 @@ export default function BrowseClient() {
             </div>
           </div>
 
+          {/* Price max */}
           <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-gray-600">
-              Price max
-            </label>
+            <label className="block text-xs font-semibold text-gray-600">Price max</label>
             <div className="relative">
-              <span className="pointer-events-none absolute left-2 top-[9px] text-gray-400">
-                $
-              </span>
+              <span className="pointer-events-none absolute left-2 top-[9px] text-gray-400">$</span>
               <input
                 type="number"
                 min={0}
@@ -336,25 +329,43 @@ export default function BrowseClient() {
 
           {/* Sort */}
           <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-gray-600">
-              Sort
-            </label>
+            <label className="block text-xs font-semibold text-gray-600">Sort</label>
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value)}
               className="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
             >
-              {SORT_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
+              <option value="newest">Newest</option>
+              <option value="price_asc">Price ↑</option>
+              <option value="price_desc">Price ↓</option>
             </select>
-            {(sort === "distance_asc" || sort === "distance_desc") && (
+          </div>
+
+          {/* Near me + distance */}
+          <div className="md:col-span-2">
+            <label className="block text-xs font-semibold text-gray-600">Distance</label>
+            <div className="mt-1 flex items-center gap-2">
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={nearMe}
+                  onChange={(e) => setNearMe(e.target.checked)}
+                />
+                Near me
+              </label>
+              <input
+                type="number"
+                min={1}
+                placeholder="miles"
+                value={distanceMiles}
+                onChange={(e) => setDistanceMiles(e.target.value)}
+                className="w-24 rounded-md border-gray-300 text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 disabled:opacity-50"
+                disabled={!nearMe}
+              />
+            </div>
+            {nearMe && !userLoc && (
               <p className="mt-1 text-[11px] text-gray-500">
-                {lat && lng
-                  ? "Sorting by distance using your current location."
-                  : "Click “Use my location” below to sort by distance."}
+                We’ll use your browser location if you allow it.
               </p>
             )}
           </div>
@@ -386,42 +397,32 @@ export default function BrowseClient() {
         </div>
 
         {/* Actions */}
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+        <div className="mt-4 flex items-center justify-end gap-2">
           <button
             type="button"
-            onClick={useMyLocation}
+            onClick={() => {
+              setQ("");
+              setCategory("All");
+              setCity("");
+              setMinPrice("");
+              setMaxPrice("");
+              setMinCap("");
+              setSort("newest");
+              setAmenities([]);
+              setNearMe(false);
+              setDistanceMiles("");
+              setQs({}, true); // clear URL
+            }}
             className="rounded-md border px-4 py-1.5 text-sm font-semibold hover:bg-gray-50"
           >
-            Use my location
+            Reset
           </button>
-
-          <div className="flex items-center gap-2 sm:ml-auto">
-            <button
-              type="button"
-              onClick={() => {
-                setQ("");
-                setCategory("All");
-                setCity("");
-                setMinPrice("");
-                setMaxPrice("");
-                setMinCap("");
-                setSort("newest");
-                setAmenities([]);
-                setLat(null);
-                setLng(null);
-                setQs({}, true); // clear URL
-              }}
-              className="rounded-md border px-4 py-1.5 text-sm font-semibold hover:bg-gray-50"
-            >
-              Reset
-            </button>
-            <button
-              type="submit"
-              className="rounded-md bg-cyan-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-cyan-700"
-            >
-              Apply filters
-            </button>
-          </div>
+          <button
+            type="submit"
+            className="rounded-md bg-cyan-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-cyan-700"
+          >
+            Apply filters
+          </button>
         </div>
       </form>
 
@@ -449,6 +450,14 @@ export default function BrowseClient() {
                 >
                   {loading ? "Loading…" : "Load more"}
                 </button>
+              </div>
+            )}
+
+            {/* Map */}
+            {markers.length > 0 && (
+              <div className="mt-8">
+                <h2 className="mb-3 text-lg font-semibold">Map</h2>
+                <ResultsMap markers={markers} userLocation={userLoc} height={420} />
               </div>
             )}
           </>
