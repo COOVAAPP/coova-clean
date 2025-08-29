@@ -23,7 +23,12 @@ export default function ListingCard({ listing }) {
     cover_url: coverUrl,
     distanceKm, // optional: provided by /api/browse when lat/lng are sent
   } = listing || {};
-
+  
+  {typeof listing.distance_meters === "number" && (
+  <p className="mt-1 text-xs text-gray-500">
+    {(listing.distance_meters / 1609.344).toFixed(1)} mi away
+  </p>
+)}
   const miles = kmToMiles(distanceKm);
   const distanceLabel =
     typeof miles === "number"
