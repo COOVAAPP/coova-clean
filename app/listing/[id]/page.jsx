@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import AmenityPill from "@/components/AmenityPill";
 import BookingForm from "@/components/BookingForm";
+import MessageHostButton from "@/components/MessageHostButton";
 
 export const dynamic = "force-dynamic";
 

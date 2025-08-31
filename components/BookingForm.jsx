@@ -1,236 +1,214 @@
+// components/BookingForm.jsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-/** Little message box */
-function Msg({ kind = "info", children }) {
-  const cls =
-    kind === "success"
-      ? "bg-green-50 text-green-800 border-green-200"
-      : kind === "error"
-      ? "bg-rose-50 text-rose-800 border-rose-200"
-      : "bg-zinc-50 text-zinc-800 border-zinc-200";
-  return <div className={`mt-3 rounded border px-3 py-2 text-sm ${cls}`}>{children}</div>;
-}
-
 /**
- * BookingForm
  * Props:
- *  - listingId   (string, required)
- *  - priceCents  (number, required)  // hourly price in cents
- *  - ownerId     (string, required)  // host user id (to block self-booking in UI)
- *  - onSuccessRedirect (string, optional) e.g. "/dashboard/bookings"
+ *  - listingId (uuid)
+ *  - ownerId   (uuid)
+ *  - priceCents (integer cents per hour)
+ *  - onSuccessRedirect (string) optional
  */
-export default function BookingForm({ listingId, priceCents, ownerId, onSuccessRedirect = "/dashboard/bookings" }) {
-  const router = useRouter();
-  const [session, setSession] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState(null); // {kind, text}
+export default function BookingForm({
+  listingId,
+  ownerId,
+  priceCents = 0,
+  onSuccessRedirect = "/dashboard/bookings",
+}) {
+  const [date, setDate] = useState("");          // yyyy-mm-dd
+  const [start, setStart] = useState("10:00");   // HH:mm (24h)
+  const [end, setEnd] = useState("12:00");       // HH:mm
+  const [blocks, setBlocks] = useState([]);      // unavailable intervals
+  const [pending, setPending] = useState(false);
+  const [err, setErr] = useState("");
+  const [okMsg, setOkMsg] = useState("");
 
-  // datetime-local fields
-  const [startAt, setStartAt] = useState("");
-  const [endAt, setEndAt] = useState("");
-
-  // other fields
-  const [guests, setGuests] = useState(1);
-  const [note, setNote] = useState("");
-
-  // min attribute for datetime-local (rounded to next 10 minutes)
-  const minLocal = useMemo(() => {
-    const d = new Date();
-    const ms = 10 * 60 * 1000;
-    const rounded = new Date(Math.ceil(d.getTime() / ms) * ms);
-    return toLocalInputValue(rounded);
-  }, []);
-
-  // auth
+  // load availability blocks for the visible month window
   useEffect(() => {
-    let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      setSession(data.session ?? null);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-    return () => sub.subscription.unsubscribe();
-  }, []);
+    const controller = new AbortController();
+    (async () => {
+      if (!listingId) return;
+      try {
+        const today = new Date();
+        const from = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0,10);
+        const to = new Date(today.getFullYear(), today.getMonth()+3, 0).toISOString().slice(0,10);
 
-  // derived: hours + total
+        const res = await fetch(
+          `/api/bookings/availability?listingId=${listingId}&from=${from}&to=${to}`,
+          { signal: controller.signal, cache: "no-store" }
+        );
+        const json = await res.json();
+        if (res.ok) setBlocks(json.blocks || []);
+      } catch {}
+    })();
+    return () => controller.abort();
+  }, [listingId]);
+
   const hours = useMemo(() => {
-    const a = parseLocalDate(startAt);
-    const b = parseLocalDate(endAt);
-    if (!a || !b || b <= a) return 0;
-    const diffHrs = (b - a) / (1000 * 60 * 60);
-    return Math.max(1, Math.ceil(diffHrs)); // round up, min 1 hour
-  }, [startAt, endAt]);
+    if (!date || !start || !end) return 0;
+    const s = new Date(`${date}T${start}:00`);
+    const e = new Date(`${date}T${end}:00`);
+    const diff = (e - s) / (1000 * 60 * 60);
+    return diff > 0 ? diff : 0;
+  }, [date, start, end]);
 
-  const totalCents = useMemo(() => (priceCents && hours ? hours * priceCents : 0), [priceCents, hours]);
-  const totalLabel = useMemo(
-    () => (totalCents > 0 ? (totalCents / 100).toLocaleString(undefined, { style: "currency", currency: "USD" }) : "—"),
-    [totalCents]
-  );
+  const total = useMemo(() => Math.round(hours * priceCents), [hours, priceCents]);
 
-  function show(kind, text) {
-    setMsg({ kind, text });
-    if (kind !== "error") setTimeout(() => setMsg(null), 2400);
+  function fmtMoney(cents) {
+    return `$${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
   }
 
-  function validateClient() {
-    if (!session?.user) { show("error", "Please sign in to book."); return false; }
-    if (ownerId && session.user.id === ownerId) { show("error", "You can’t book your own listing."); return false; }
-    if (!startAt || !endAt) { show("error", "Please choose start and end time."); return false; }
+  const slotConflicts = useMemo(() => {
+    if (!date || !start || !end) return false;
+    const s = new Date(`${date}T${start}:00Z`);
+    const e = new Date(`${date}T${end}:00Z`);
+    return (blocks || []).some((b) => {
+      const bs = new Date(b.start);
+      const be = new Date(b.end);
+      return s < be && e > bs; // ranges overlap
+    });
+  }, [blocks, date, start, end]);
 
-    const start = parseLocalDate(startAt);
-    const end = parseLocalDate(endAt);
-    const now = new Date();
+  async function submit() {
+    setErr("");
+    setOkMsg("");
 
-    if (start <= now) { show("error", "Start time must be in the future."); return false; }
-    if (end <= start) { show("error", "End time must be after start time."); return false; }
-
-    const diffHrs = (end - start) / (1000 * 60 * 60);
-    if (diffHrs < 1) { show("error", "Minimum booking is 1 hour."); return false; }
-
-    return true;
-  }
-
-  async function submit(e) {
-    e.preventDefault();
-    setMsg(null);
-    if (!validateClient()) return;
-
-    setBusy(true);
     try {
-      const payload = {
-        listing_id: listingId,
-        guest_id: session.user.id,
-        start_at: parseLocalDate(startAt).toISOString(),
-        end_at: parseLocalDate(endAt).toISOString(),
-        guests: Number(guests) || 1,
-        note: note.trim() || null,
-        total_cents: totalCents,
-        status: "pending",
-      };
+      setPending(true);
 
-      const { error } = await supabase.from("bookings").insert(payload);
-
-      if (error) {
-        const isOverlap =
-          error.code === "23P01" ||
-          (error.message && /bookings_no_overlap_gist/i.test(error.message)) ||
-          (error.details && /overlap/i.test(error.details));
-        if (isOverlap) {
-          show("error", "That time overlaps an existing booking. Please choose another time.");
-        } else if (error.code === "42501") {
-          show("error", "Permission denied. Verify you’re 18+ and not booking your own listing.");
-        } else if (error.code === "23514") {
-          show("error", "Invalid dates. Start must be before end.");
-        } else if (error.code === "23503") {
-          show("error", "Listing not found.");
-        } else {
-          show("error", error.message || "Booking failed.");
-        }
+      // Make sure signed-in
+      const { data: sess } = await supabase.auth.getSession();
+      if (!sess?.session?.user) {
+        setErr("Please sign in first.");
+        return;
+      }
+      if (!date || !start || !end) {
+        setErr("Choose a date, start, and end time.");
+        return;
+      }
+      if (hours <= 0) {
+        setErr("End time must be after start time.");
+        return;
+      }
+      if (slotConflicts) {
+        setErr("That time overlaps an existing booking.");
         return;
       }
 
-      show("success", "✅ Request sent! Redirecting…");
-      setTimeout(() => { router.push(onSuccessRedirect); }, 900);
+      const startsAtLocal = new Date(`${date}T${start}:00`);
+      const endsAtLocal = new Date(`${date}T${end}:00`);
+
+      const payload = {
+        listingId,
+        ownerId,
+        startsAt: startsAtLocal.toISOString(),
+        endsAt: endsAtLocal.toISOString(),
+        pricePerHourCents: priceCents,
+      };
+
+      const res = await fetch("/api/bookings/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+
+      if (!res.ok) throw new Error(json?.error || "Failed to create booking");
+
+      setOkMsg("Booking request sent! We’ll redirect you…");
+      setTimeout(() => {
+        window.location.href = onSuccessRedirect;
+      }, 900);
+    } catch (e) {
+      setErr(e.message || "Something went wrong.");
     } finally {
-      setBusy(false);
+      setPending(false);
     }
   }
 
   return (
-    <form onSubmit={submit} className="rounded-lg border border-gray-200 bg-white p-4 space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Start</label>
-          <input
-            type="datetime-local"
-            value={startAt}
-            onChange={(e) => setStartAt(e.target.value)}
-            min={minLocal}
-            required
-            className="mt-1 w-full rounded border px-3 py-2"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">End</label>
-          <input
-            type="datetime-local"
-            value={endAt}
-            onChange={(e) => setEndAt(e.target.value)}
-            min={startAt || minLocal}
-            required
-            className="mt-1 w-full rounded border px-3 py-2"
-          />
-        </div>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Guests</label>
-          <input
-            type="number"
-            min={1}
-            value={guests}
-            onChange={(e) => setGuests(Math.max(1, Number(e.target.value) || 1))}
-            className="mt-1 w-32 rounded border px-3 py-2"
-          />
-        </div>
-        <div className="self-end">
-          <p className="text-sm text-gray-600">
-            Total ({hours || "—"} hour{hours === 1 ? "" : "s"}):{" "}
-            <span className="font-semibold">{totalLabel}</span>
-          </p>
-          <p className="text-xs text-gray-500">
-            ${((priceCents ?? 0) / 100).toLocaleString()} / hour
-          </p>
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Message to host (optional)</label>
-        <textarea
-          rows={3}
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          className="mt-1 w-full rounded border px-3 py-2"
-          placeholder="Anything the host should know?"
+    <div className="space-y-3">
+      {/* Date */}
+      <label className="block">
+        <span className="block text-xs font-semibold text-gray-600">Date</span>
+        <input
+          type="date"
+          className="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          min={new Date().toISOString().slice(0,10)}
         />
+      </label>
+
+      {/* Time range */}
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block">
+          <span className="block text-xs font-semibold text-gray-600">Start</span>
+          <input
+            type="time"
+            value={start}
+            onChange={(e) => setStart(e.target.value)}
+            className="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
+          />
+        </label>
+        <label className="block">
+          <span className="block text-xs font-semibold text-gray-600">End</span>
+          <input
+            type="time"
+            value={end}
+            onChange={(e) => setEnd(e.target.value)}
+            className="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
+          />
+        </label>
       </div>
 
+      {/* Summary */}
+      <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm">
+        <div className="flex justify-between">
+          <span>Hours</span>
+          <span className="font-semibold">{hours.toFixed(2)}</span>
+        </div>
+        <div className="mt-1 flex justify-between">
+          <span>Rate</span>
+          <span className="font-semibold">{fmtMoney(priceCents)}</span>
+        </div>
+        <div className="mt-2 flex justify-between border-t pt-2">
+          <span>Total</span>
+          <span className="font-bold">{fmtMoney(total)}</span>
+        </div>
+      </div>
+
+      {/* Status */}
+      {err && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {err}
+        </div>
+      )}
+      {slotConflicts && !err && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Selected time overlaps an existing booking.
+        </div>
+      )}
+      {okMsg && (
+        <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+          {okMsg}
+        </div>
+      )}
+
+      {/* CTA */}
       <button
-        type="submit"
-        disabled={busy}
-        className="rounded bg-cyan-500 px-4 py-2 font-semibold text-white disabled:opacity-50 hover:opacity-90"
+        onClick={submit}
+        disabled={pending || hours <= 0 || slotConflicts}
+        className="w-full rounded-md bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-700 disabled:opacity-50"
       >
-        {busy ? "Sending…" : "Request to book"}
+        {pending ? "Sending…" : "Request booking"}
       </button>
 
-      {msg && <Msg kind={msg.kind}>{msg.text}</Msg>}
-    </form>
+      <p className="mt-2 text-[11px] text-gray-500">
+        Your request will be sent to the host. No charges yet. (We’ll add payment capture later.)
+      </p>
+    </div>
   );
-}
-
-/* ---------- helpers ---------- */
-
-function toLocalInputValue(d) {
-  const pad = (n) => String(n).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  const mm = pad(d.getMonth() + 1);
-  const dd = pad(d.getDate());
-  const hh = pad(d.getHours());
-  const mi = pad(d.getMinutes());
-  return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
-}
-
-function parseLocalDate(value) {
-  if (!value) return null;
-  const [datePart, timePart] = value.split("T");
-  if (!datePart || !timePart) return null;
-  const [y, m, d] = datePart.split("-").map(Number);
-  const [hh, mm] = timePart.split(":").map(Number);
-  const dt = new Date(y, m - 1, d, hh, mm, 0, 0);
-  return isNaN(dt.getTime()) ? null : dt;
 }
