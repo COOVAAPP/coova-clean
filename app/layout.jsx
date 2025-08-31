@@ -2,6 +2,7 @@
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import "leaflet/dist/leaflet.css";
 
 export const fetchCache = "force-no-store";
 

@@ -44,6 +44,10 @@ function useQueryState() {
       .map((x) => x.trim())
       .filter(Boolean);
 
+
+    const lat = sp.get("lat");
+    const lng = sp.get("lng");
+
     return {
       q: get("q"),
       category: get("category", "All"),
@@ -56,8 +60,8 @@ function useQueryState() {
       // distance filters
       nearMe: get("nearMe") === "1",
       distanceMiles: getNum("distance"),
-      lat: get("lat"),
-      lng: get("lng"),
+      lat: lat ? Number(lat) : "",
+      lng: lng ? Number(lng) : "",
       page: Number(sp.get("page") || "1"),
     };
   }, [sp]);
@@ -96,6 +100,7 @@ export default function BrowseClient() {
   const [minCap, setMinCap] = useState(qs.minCap);
   const [sort, setSort] = useState(qs.sort);
   const [amenities, setAmenities] = useState(qs.amenities);
+
 
   // distance filters
   const [lat, setLat] = useState(qs.lat);
@@ -277,13 +282,39 @@ export default function BrowseClient() {
           {/* City */}
           <div className="md:col-span-2">
             <label className="block text-xs font-semibold text-gray-600">City</label>
-            <input
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              placeholder="e.g., Atlanta"
-              className="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
+            <div className="mt-1 flex gap-2"></div>
+              <input
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="e.g., Atlanta"
+                className="mt-1 w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
             />
-          </div>
+            <button
+                type="button"
+                onClick={() => {
+                  if (!navigator.geolocation) {
+                    alert("Geolocation not supported in this browser.");
+                  return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                  (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    setCity("");          // don’t mix city text with coords
+                    setLat(latitude);
+                    setLng(longitude);
+                              // push into URL so fetchPage sees them
+                    setQs({ city: "", lat: latitude, lng: longitude }, true);
+                  },
+                  (err) => alert(err.message || "Failed to get location"),
+                  { enableHighAccuracy: true, timeout: 8000 }
+               );
+              }}
+              className="whitespace-nowrap rounded-md border px-3 text-sm font-semibold hover:bg-gray-50"
+              title="Use my location"
+              >
+                Use my location
+              </button>
+           </div>
 
           {/* Capacity */}
           <div className="md:col-span-1">
