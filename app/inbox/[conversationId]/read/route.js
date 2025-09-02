@@ -8,44 +8,47 @@ function getClient() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-export async function POST(_req, ctx) {
+export async function POST(_req, { params }) {
   const supabase = getClient();
 
-  const {
-    data: { user },
-    error: authErr,
-  } = await supabase.auth.getUser();
-  const uid = user?.id;
+  // who am I?
+  const { data: auth, error: authErr } = await supabase.auth.getUser();
+  const uid = auth?.user?.id;
   if (!uid || authErr) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const convId = ctx.params.conversationId;
+  const convId = params?.conversationId;
+  if (!convId) {
+    return NextResponse.json({ error: "Missing conversationId" }, { status: 400 });
+  }
 
-  // verify participant
+  // (Optional) ensure requester is part of this conversation
   const { data: conv, error: convErr } = await supabase
     .from("conversations")
-    .select("id")
+    .select("id, user_a, user_b")
     .eq("id", convId)
-    .or(`user_a.eq.${uid},user_b.eq.${uid}`)
     .single();
 
   if (convErr || !conv) {
     return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
   }
+  if (conv.user_a !== uid && conv.user_b !== uid) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
-  const { error } = await supabase
+  // Upsert read state
+  const now = new Date().toISOString();
+  const { error: upErr } = await supabase
     .from("conversation_reads")
     .upsert(
-      {
-        conversation_id: convId,
-        user_id: uid,
-        last_read_at: new Date().toISOString(),
-      },
+      { conversation_id: convId, user_id: uid, last_read_at: now },
       { onConflict: "conversation_id,user_id" }
     );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (upErr) {
+    return NextResponse.json({ error: upErr.message }, { status: 500 });
+  }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, last_read_at: now });
 }

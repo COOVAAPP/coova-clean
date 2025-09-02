@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import InboxBadge from "./InboxBadge.jsx";
 
 // ⬇️ Adjust these paths if your files live elsewhere
 import AuthModal from "./AuthModal.jsx";
@@ -57,7 +58,14 @@ export default function Header() {
     },
     [setAuthOpen, setAuthTab]
   );
-
+  //psuedo
+  const [badge, setBadge] = useState(0);
+  useEffect(() => {
+    fetch("/api/inbox/unread-count", { cache: "no-store"})
+      .then(r => r.json())
+      .then(j => setBadge(j.count || 0))
+  }, []);
+  
   // Auth-guarded “List your space”
   const onListYourSpace = useCallback(async () => {
     if (typeof requireAuth === "function") {
@@ -104,6 +112,14 @@ export default function Header() {
                 className="font-extrabold tracking-wide text-2xl text-white"
               >
                 COOVA
+              </Link>
+
+              <Link 
+                href="/inbox"
+                className="inline-flex items-center gap-1 hover:text-cyan-500"
+                >
+                Inbox
+                <InboxBadge />
               </Link>
             </div>
 

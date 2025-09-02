@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import MessageComposer from "@/components/MessageComposer";
 
 export default function ThreadPage({ params }) {
   const { conversationId } = params;
   const [items, setItems] = useState([]);
+  const lastCountRef = useRef(0);
 
   async function load() {
     const res = await fetch(`/api/messages?conversationId=${conversationId}`, { cache: "no-store" });
@@ -14,42 +15,38 @@ export default function ThreadPage({ params }) {
     setItems(json.items || []);
   }
 
+  // ---- NEW: mark as read
+  async function markRead() {
+    if (!conversationId) return;
+    try {
+      await fetch(`/api/inbox/${conversationId}/read`, { method: "POST" });
+    } catch (e) {
+      // non-fatal
+      console.warn("markRead failed", e);
+    }
+  }
+
   useEffect(() => {
-    load();
+    load().then(() => markRead());
   }, [conversationId]);
 
+  // Realtime
   useEffect(() => {
     if (!conversationId) return;
 
-    // 1) Subscribe to INSERTs for this conversation
     const channel = supabase
       .channel(`msgs-${conversationId}`)
       .on(
         "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
-        },
+        { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
         (payload) => {
           const m = payload.new;
-          setItems((prev) => {
-            // ignore duplicates if our own optimistic send already added it
-            if (prev.some((x) => x.id === m.id)) return prev;
-            return [...prev, m];
-          });
+          setItems((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
         }
       )
-      // OPTIONAL: keep list in sync with edits/deletes
       .on(
         "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
-        },
+        { event: "UPDATE", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
         (payload) => {
           const m = payload.new;
           setItems((prev) => prev.map((x) => (x.id === m.id ? { ...x, ...m } : x)));
@@ -57,12 +54,7 @@ export default function ThreadPage({ params }) {
       )
       .on(
         "postgres_changes",
-        {
-          event: "DELETE",
-          schema: "public",
-          table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
-        },
+        { event: "DELETE", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
         (payload) => {
           const deletedId = payload.old.id;
           setItems((prev) => prev.filter((x) => x.id !== deletedId));
@@ -70,9 +62,22 @@ export default function ThreadPage({ params }) {
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => supabase.removeChannel(channel);
+  }, [conversationId]);
+
+  // ---- NEW: whenever list grows, mark as read
+  useEffect(() => {
+    if (items.length && items.length !== lastCountRef.current) {
+      lastCountRef.current = items.length;
+      markRead();
+    }
+  }, [items]);
+
+  // ---- NEW: mark as read on focus
+  useEffect(() => {
+    const onFocus = () => markRead();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, [conversationId]);
 
   return (
@@ -86,11 +91,7 @@ export default function ThreadPage({ params }) {
               <div className="text-xs text-gray-500">{new Date(m.created_at).toLocaleString()}</div>
               {m.body && <div className="mt-1 text-sm">{m.body}</div>}
               {m.attachment_url && (
-                <a
-                  href={m.attachment_url}
-                  target="_blank"
-                  className="mt-1 inline-block text-sm text-cyan-600 underline"
-                >
+                <a href={m.attachment_url} target="_blank" className="mt-1 inline-block text-sm text-cyan-600 underline">
                   Attachment
                 </a>
               )}
@@ -102,9 +103,7 @@ export default function ThreadPage({ params }) {
         <MessageComposer
           conversationId={conversationId}
           onSent={() => {
-            // optional: rely on realtime; this just ensures your own message appears
-            // immediately even if the realtime event arrives a moment later
-            load();
+            load(); // you can rely on realtime, this just guarantees immediate echo
           }}
         />
       </div>
