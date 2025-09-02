@@ -113,15 +113,7 @@ export default function Header() {
               >
                 COOVA
               </Link>
-
-              <Link 
-                href="/inbox"
-                className="inline-flex items-center gap-1 hover:text-cyan-500"
-                >
-                Inbox
-                <InboxBadge />
-              </Link>
-            </div>
+             </div>
 
             {/* Center: primary nav (desktop) */}
             <nav className="hidden lg:flex items-center gap-8">
@@ -141,6 +133,14 @@ export default function Header() {
               >
                 List your space
               </button>
+
+              <Link 
+                href="/inbox"
+                className="inline-flex items-center gap-1 hover:text-cyan-500"
+                >
+                Inbox
+                <InboxBadge />
+              </Link>
             </nav>
 
             {/* Right: auth */}
