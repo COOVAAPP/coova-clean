@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import InboxBadge from "./InboxBadge.jsx";
+import VerifyAgeModal from "./VerifyAgeModal.jsx";
 
 // ⬇️ Adjust these paths if your files live elsewhere
 import AuthModal from "./AuthModal.jsx";
@@ -35,6 +36,7 @@ export default function Header() {
 
   // ===== Local UI state =====
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [ageGateOpen, setAgeGateOpen] = useState(false);
 
   // Close mobile nav on route change
   useEffect(() => setMobileOpen(false), [pathname]);
@@ -46,18 +48,24 @@ export default function Header() {
   );
 
   // Open Auth modal
-  const openAuth = useCallback(
-    (tab = "signin") => {
-      if (typeof setAuthTab === "function") setAuthTab(tab);
-      if (typeof setAuthOpen === "function") {
-        setAuthOpen(true);
-      } else {
-        // Fallback: if hook not wired, at least go to /login
-        window.location.href = "/login";
-      }
-    },
-    [setAuthOpen, setAuthTab]
-  );
+ const openAuth = useCallback((tab = "signin") => {
+  // keep your existing tab state if you have one
+  if (typeof setAuthTab === "function") setAuthTab(tab);
+
+  try {
+    const ok = typeof window !== "undefined" && localStorage.getItem("age_gate_ok") === "1";
+    if (ok) {
+      // already verified on this device → open auth immediately
+      if (typeof setAuthOpen === "function") setAuthOpen(true);
+    } else {
+      // show the age gate FIRST
+      setAgeGateOpen(true);
+    }
+  } catch {
+    // if localStorage fails for any reason, fall back to showing the gate
+    setAgeGateOpen(true);
+  }
+}, [setAuthOpen, setAuthTab]);
   //psuedo
   const [badge, setBadge] = useState(0);
   useEffect(() => {
@@ -219,6 +227,15 @@ export default function Header() {
         open={!!authOpen}
         onClose={() => setAuthOpen?.(false)}
         defaultTab={authTab || "signin"}
+      />
+      <VerifyAgeModal
+        open={ageGateOpen}
+        onClose={() => setAgeGateOpen(false)}
+        onVerified={() => {
+          try { localStorage.setItem("age_gate_ok", "1"); } catch {}
+          setAgeGateOpen(false);
+          if (typeof setAuthOpen === "function") setAuthOpen(true);
+        }}
       />
     </>
   );
