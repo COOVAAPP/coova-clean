@@ -1,90 +1,86 @@
+// app/dashboard/page.jsx
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 
-export const dynamic = "force-dynamic"; // run-time auth checks
+export const dynamic = "force-dynamic";
 
 export default function DashboardPage() {
-  const router = useRouter();
-
-  const [session, setSession] = useState(null);
-  const [ready, setReady] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     let mounted = true;
-
-    // Initial session + 18+ verification check
-    supabase.auth.getSession().then(async ({ data }) => {
+    (async () => {
+      const { data } = await supabase.auth.getSession();
       if (!mounted) return;
-
-      if (!data.session) {
-        router.replace("/login");
-        return;
-      }
-
-      setSession(data.session);
-
-      // age gate: must be verified_18
-      const { data: prof, error } = await supabase
-        .from("profiles")
-        .select("verified_18")
-        .eq("id", data.session.user.id)
-        .maybeSingle();
-
-      if (error || !prof?.verified_18) {
-        router.replace("/verify-age");
-        return;
-      }
-
-      setReady(true);
-    });
-
-    // Keep reacting to auth changes
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-      if (!mounted) return;
-      setSession(s);
-      if (!s) router.replace("/login");
-    });
-
+      setUser(data?.session?.user ?? null);
+      setLoading(false);
+    })();
     return () => {
       mounted = false;
-      sub.subscription.unsubscribe();
     };
-  }, [router]);
+  }, []);
 
-  if (!ready) {
+  if (loading) {
     return (
-      <main className="max-w-6xl mx-auto px-4 py-10">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="mt-4">Loading…</p>
+      <main className="container-page py-10">
+        <p className="text-gray-600">Loading…</p>
+      </main>
+    );
+  }
+
+  if (!user) {
+    return (
+      <main className="container-page py-10">
+        <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">
+          Dashboard
+        </h1>
+        <p className="mt-2 text-gray-700">Please sign in to view your dashboard.</p>
+        <Link
+          href="/login"
+          className="mt-4 inline-flex rounded-full bg-cyan-600 px-5 py-2 font-semibold text-white hover:bg-cyan-700"
+        >
+          Sign in
+        </Link>
       </main>
     );
   }
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-10">
-      <h1 className="text-2xl font-extrabold text-cyan-500 tracking-tight">
+    <main className="container-page py-10">
+      <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">
         Dashboard
       </h1>
 
-      {/* Example cards — replace with real data when ready */}
-      <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="rounded-lg border border-gray-200 bg-white p-6">
-          <p className="text-sm text-gray-500">Listings</p>
-          <p className="mt-2 text-3xl font-extrabold">0</p>
-        </div>
+      <div className="mt-6 grid gap-6 md:grid-cols-2">
+        <section className="rounded-lg border border-gray-200 bg-white p-5">
+          <h2 className="text-base font-semibold">Your listings</h2>
+          <p className="mt-1 text-sm text-gray-600">
+            Create, edit, and publish your spaces.
+          </p>
+          <Link
+            href="/list"
+            className="mt-3 inline-block text-cyan-600 hover:underline"
+          >
+            Manage listings
+          </Link>
+        </section>
 
-        <div className="rounded-lg border border-gray-200 bg-white p-6">
-          <p className="text-sm text-gray-500">Bookings</p>
-          <p className="mt-2 text-3xl font-extrabold">0</p>
-        </div>
-
-        <div className="rounded-lg border border-gray-200 bg-white p-6">
-          <p className="text-sm text-gray-500">Earnings</p>
-          <p className="mt-2 text-3xl font-extrabold">$0</p>
-        </div>
+        <section className="rounded-lg border border-gray-200 bg-white p-5">
+          <h2 className="text-base font-semibold">Messages</h2>
+          <p className="mt-1 text-sm text-gray-600">
+            Check and reply to inquiries.
+          </p>
+          <Link
+            href="/messages"
+            className="mt-3 inline-block text-cyan-600 hover:underline"
+          >
+            Go to inbox
+          </Link>
+        </section>
       </div>
     </main>
   );
