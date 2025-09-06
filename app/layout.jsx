@@ -6,7 +6,7 @@ import AgeGateSync from "@/components/AgeGateSync";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import "leaflet/dist/leaflet.css";
-import Agesync from "@/components/AgeSync";
+import AgeSync from "@/components/AgeSync.jsx";
 
 export const fetchCache = "force-no-store";
 
