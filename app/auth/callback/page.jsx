@@ -1,4 +1,3 @@
-// app/auth/callback/page.jsx
 "use client";
 
 import { useEffect } from "react";
@@ -8,10 +7,10 @@ export default function AuthCallback() {
   useEffect(() => {
     (async () => {
       try {
-        // Handles OAuth and email magic link redirects
+        // Handles OAuth and magic link redirects
         await supabase.auth.exchangeCodeForSession();
       } catch (e) {
-        console.error("exchangeCodeForSession error:", e);
+        console.error("exchangeCodeForSession error", e);
       } finally {
         // Go back to where users likely came from
         const url = new URL(window.location.href);
@@ -22,7 +21,7 @@ export default function AuthCallback() {
   }, []);
 
   return (
-    <main className="min-h-[50vh] grid place-items-center">
+    <main className="min-h-screen grid place-items-center">
       <p className="text-gray-600">Signing you in…</p>
     </main>
   );
