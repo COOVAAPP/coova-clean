@@ -1,74 +1,67 @@
 // app/layout.jsx
 "use client";
-
 import { useEffect, useRef, useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import AuthModal from "@/components/AuthModal";
-import VerifyAgeModal from "@/components/VerifyAgeModal"; // ← make sure this exists
+import VerifyAgeModal from "@/components/VerifyAgeModal"; // ⬅️ add this import
 import "./globals.css";
 
 export default function RootLayout({ children }) {
   const [authOpen, setAuthOpen] = useState(false);
   const [authTab, setAuthTab] = useState("signin");
 
-  // age gate state
-  const [ageGateOpen, setAgeGateOpen] = useState(false);
-  // store the tab we *wanted* to open (signin/signup) until age gate passes
-  const pendingTabRef = useRef("signin");
+  // age modal state
+  const [ageOpen, setAgeOpen] = useState(false);
+  const ageResolveRef = useRef(null); // holds the callback we’ll run after “Yes, I’m 18+”
 
-  // Expose a single, global opener the Header (and others) can call.
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    // Allow anything (Header, buttons) to open Auth
     window.__COOVA_OPEN_AUTH__ = (tab = "signin") => {
-      pendingTabRef.current = tab;
+      setAuthTab(tab);
+      setAuthOpen(true);
+    };
 
-      try {
-        const ok = localStorage.getItem("age_gate_ok") === "1";
-        if (ok) {
-          setAuthTab(tab);
-          setAuthOpen(true);
-        } else {
-          setAgeGateOpen(true);
-        }
-      } catch {
-        // If localStorage isn’t available, fall back to showing the gate.
-        setAgeGateOpen(true);
-      }
+    // Allow anything to open the Age modal and provide a callback when confirmed
+    window.__COOVA_OPEN_AGE__ = (onVerified) => {
+      ageResolveRef.current = typeof onVerified === "function" ? onVerified : null;
+      setAgeOpen(true);
     };
 
     return () => {
       delete window.__COOVA_OPEN_AUTH__;
+      delete window.__COOVA_OPEN_AGE__;
     };
   }, []);
-
-  // called when user confirms they are 18+
-  const handleAgeVerified = () => {
-    try {
-      localStorage.setItem("age_gate_ok", "1");
-    } catch {}
-    setAgeGateOpen(false);
-    setAuthTab(pendingTabRef.current || "signin");
-    setAuthOpen(true);
-  };
 
   return (
     <html lang="en">
       <body className="bg-gray-50 text-gray-900">
         <Header />
-        {/* Auth modal can be triggered globally via window.__COOVA_OPEN_AUTH__ */}
+
+        {/* Auth modal (unchanged) */}
         <AuthModal
           open={authOpen}
           defaultTab={authTab}
           onClose={() => setAuthOpen(false)}
         />
 
-        {/* Age gate appears *before* auth if not acknowledged */}
+        {/* Age modal (new) */}
         <VerifyAgeModal
-          open={ageGateOpen}
-          onClose={() => setAgeGateOpen(false)}
-          onConfirm={handleAgeVerified}
+          open={ageOpen}
+          onClose={() => {
+            setAgeOpen(false);
+            ageResolveRef.current = null; // canceled
+          }}
+          onVerified={() => {
+            setAgeOpen(false);
+            // run the waiting callback (e.g., then open Auth)
+            const cb = ageResolveRef.current;
+            ageResolveRef.current = null;
+            try { cb && cb(); } catch {}
+          }}
         />
 
         <div className="min-h-screen">{children}</div>
