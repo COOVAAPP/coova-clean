@@ -5,7 +5,7 @@ export const metadata = {
 
 export default function PrivacyPage() {
   return (
-    <main className="container-page py-10 prose prose-gray">
+    <main className="container-page py-10 prose prose-gray text-center">
       <h1 className="text-2xl font-extrabold tracking-tight text-cyan-500">Privacy Policy</h1>
       <p className="mt-3">Effective Date: {new Date().getFullYear()}</p>
 
